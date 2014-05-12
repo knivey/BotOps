@@ -1,0 +1,5 @@
+<phpunit>
+  <php>
+    <includePath>./BotOps/</includePath>
+  </php>
+</phpunit>

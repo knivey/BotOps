@@ -1,0 +1,16 @@
+What does basic stand for*beginner's all purpose symbolic instruction code
+what does ascii mean*american standard code for information interchange
+Computer Science: That big rectangular thing you're staring at right now is called a ______*monitor
+Computer Science: The Internet Relay Chat Program, which normally connects to port 6667, is more commonly known as ______*IRC
+The relative speed of the TRS-80 to the ENIAC is ______ to 1*20
+What does 'yahoo' mean*yet another hierarchical officious oracle
+What does ebcdic mean*extended binary coded decimal interchange code
+What does RAMDAC stand for*random access memory digital to analogue converter
+Science: Computers: what are the 3 major methods of storing files in secondary storage*sequential direct indexed file organization
+Science: Computers: What is an Mflop*million floating point operations per second
+Internet domains: identify the country: il*israel
+acronym soup: http*hyper text transfer protocol
+ACRONYMS: ROM*Read only memory
+SCIENCE: How many bits, handled as one unit, constitute a byte*eight
+Science: What did an IBM 7090 computer calculate to 100,265 decimal places in 1961*pi
+

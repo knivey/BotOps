@@ -1,0 +1,14 @@
+Math: A triangle with two equal sides is called ______*isosceles
+Math: An angle greater than 180 degrees and less than 360 degrees is a(n) ______ angle*reflex
+Math: Approximately how many inches are there in one meter*thirty nine
+Math: He is known as "The Father of Geometry"*Euclid
+Math: How many corners are there in a cube*eight*8
+Math: If you cut through a solid sphere what shape will the flat area be*circle
+Math: The angles inside a square total ______degrees*three hundred and sixty*360
+Math: What geometric shape has 4 equal sides*square
+Math: The space occupied by a body is called its ______*volume
+A line drawn from an angle of a triangle to the mid-point of the opposite side is a(n) ______*median
+A triangle with three equal sides is called ______*equilateral
+An angle greater than 90 degrees and less than 180 degrees is said to be ______*obtuse
+Arc, radius, and sector are parts of a(n) ______*circle
+Two angles that total 180 degrees are called ______*supplementary

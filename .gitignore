@@ -1,0 +1,9 @@
+.buildpath
+.project
+.settings
+nbproject
+lol.htm
+BotOps/main.conf
+BotOps/weather3
+BotOps/oldsrc
+BotOps/httppostsend
