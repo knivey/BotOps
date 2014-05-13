@@ -1,0 +1,15 @@
+{
+    "require": {
+        "monolog/monolog": "*"
+    },
+    
+    "require-dev": {
+        "phpunit/PHPUnit": "*",
+        "phpunit/php-invoker": "*",
+        "ext-xdebug": "*"
+    },
+    
+    "autoload": {
+        "psr-4": {"BotOps\\": "BotOps/"}
+    }
+}

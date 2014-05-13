@@ -91,7 +91,7 @@ class Sockets {
     /**
      * Find the key for the sockets in our array
      * @param resource $sock
-     * @return int|boolean Sockets intval key
+     * @return int|boolean The array key for the socket
      */
     function findSock($sock) {
         foreach ($this->sockets as $key => $info) {
@@ -385,6 +385,11 @@ class Sockets {
             return FALSE;
         }
 
+        $ourAddr = null;
+        $ourPort = null;
+
+        socket_getsockname($fp, $ourAddr, $ourPort);
+
         $this->sockets[intval($fp)] = Array(
             'host'           => NULL,
             'bind'           => $bind,
@@ -407,7 +412,9 @@ class Sockets {
             'state'          => false,
             'persist'        => $persist,
             'rBytes'         => 0,
-            'sBytes'         => 0
+            'sBytes'         => 0,
+            'ourAddr'        => $ourAddr,
+            'ourPort'        => $ourPort,
         );
 
         $this->dbg("$fp created");
@@ -719,12 +726,92 @@ class Sockets {
      * @return string
      */
     public function getOurPort($sock) {
-        $ip   = '';
-        $port = '';
-        socket_getsockname($sock, $ip, $port);
+        $key = $this->findSock($sock);
+
+        if ($key === false) {
+            $this->dbg("$sock not found");
+            return false;
+        }
+
+        if (!is_resource($sock)) {
+            $this->dbg("$sock is not resource");
+            return false;
+        }
+
+        if (array_key_exists('ourPort', $this->sockets[$key])) {
+            if ($this->sockets[$key]['ourPort'] != null) {
+                return $this->sockets[$key]['ourPort'];
+            }
+        }
+
+        $addr = null;
+        $port = null;
+
+        socket_getsockname($sock, $addr, $port);
+
+        $this->sockets[$key]['ourPort'] = $port;
+
         return $port;
     }
 
+    /**
+     * Returns the address for our side of connection
+     * @param resource $sock
+     * @return string
+     */
+    public function getOurAddr($sock) {
+        $key = $this->findSock($sock);
+
+        if ($key === false) {
+            $this->dbg("$sock not found");
+            return false;
+        }
+
+        if (!is_resource($sock)) {
+            $this->dbg("$sock is not resource");
+            return false;
+        }
+
+        if (array_key_exists('ourAddr', $this->sockets[$key])) {
+            if ($this->sockets[$key]['ourAddr'] != null) {
+                return $this->sockets[$key]['ourAddr'];
+            }
+        }
+
+        $addr = null;
+        $port = null;
+
+        socket_getsockname($sock, $addr, $port);
+
+        $this->sockets[$key]['ourAddr'] = $addr;
+
+        return $addr;
+    }
+
+    /**
+     * Returns the last error for the socket
+     * @param resource $sock
+     * @return Array Array($errno, $errstr)
+     */
+    public function getLastErr($sock) {
+        $key = $this->findSock($sock);
+
+        if ($key === false) {
+            $this->dbg("$sock not found");
+            return false;
+        }
+
+        if (!is_resource($sock)) {
+            $this->dbg("$sock is not resource");
+            return false;
+        }
+
+        $errno  = socket_last_error($sock);
+        $errstr = socket_strerror($errno);
+
+        return Array($errno, $errstr);
+    }
+    
     /**
      * Returns the IP/Host of the connection
      * @param resource $sock

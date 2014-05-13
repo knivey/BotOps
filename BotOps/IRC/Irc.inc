@@ -1,28 +1,4 @@
 <?php
-/***************************************************************************
- * BotNetwork Bots IRC Framework
- * Http://www.botnetwork.org/
- * Contact: irc://irc.gamesurge.net/bots 
- *************************************************************************** 
- * Copyright (C) 2009 BotNetwork
- *
- *   This program is free software: you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation, either version 3 of the License, or
- *   (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- ***************************************************************************
- * IRC/Irc.inc
- *  Maintain our connection to an IRC server
- ***************************************************************************/
 
 require_once 'Tools/Tools.php';
 require_once 'IRC/IrcFilters.php';
@@ -281,54 +257,54 @@ class Irc {
      * @return Irc
      */
     function __construct(&$sockets, $nick, $bind, $server, $ipv, $port = 6667, $pass = '', $timeout = 30, $pingtimeout = 170) {
-        $this->user = "bots localhost localhost :IRC Bot Services #Bots";
+        $this->user   = "bots localhost localhost :IRC Bot Services #Bots";
         $this->server = $server;
-        if($ipv != 4 && $ipv != 6) {
+
+        if ($ipv != 4 && $ipv != 6) {
             $ipv = 4;
         }
-        $this->ipv = $ipv;
-        $this->port = $port;
-        $this->pass = $pass;
-        $this->timeout = $timeout;
-        $this->bind = $bind;
-        $this->nick = $nick;
-        $this->pSockets = $sockets;
-        $this->RTO = $pingtimeout;
-        $this->ircFilters = new IrcFilters();
 
-        $this->nickCheck = time() + 10;
-
-        $this->Nicks = new Nicks();
-        
+        $this->ipv         = $ipv;
+        $this->port        = $port;
+        $this->pass        = $pass;
+        $this->timeout     = $timeout;
+        $this->bind        = $bind;
+        $this->nick        = $nick;
+        $this->pSockets    = $sockets;
+        $this->RTO         = $pingtimeout;
+        $this->ircFilters  = new IrcFilters();
+        $this->nickCheck   = time() + 10;
+        $this->Nicks       = new Nicks();
         $this->eventServer = new KEventServer();
+
         /*
-        $this->hooks = Array(
-            'connected' => Array(),
-            'disconnect' => Array(),
-            'join' => Array(),
-            'part' => Array(),
-            '+mode' => Array(),
-            '-mode' => Array(),
-            '+ban' => Array(),
-            '-ban' => Array(),
-            '+op' => Array(),
-            '-op' => Array(),
-            '+voice' => Array(),
-            '-voice' => Array(),
-            'kick' => Array(),
-            'topic' => Array(),
-            'quit' => Array(),
-            'msg' => Array(),
-            'authed' => Array(),
-            'nick' => Array(),
-            'notice' => Array(),
-            'out' => Array(),
-            'raw' => Array(), //raw data read in
-            'chanevent' => Array(), //any event you would see in an irc client channel
-            'killbot' => Array(), //called when bot asked to die
-        );
-        //chanevent function will recv args ('#chan', 'rawline')
-        */
+          $this->hooks = Array(
+          'connected' => Array(),
+          'disconnect' => Array(),
+          'join' => Array(),
+          'part' => Array(),
+          '+mode' => Array(),
+          '-mode' => Array(),
+          '+ban' => Array(),
+          '-ban' => Array(),
+          '+op' => Array(),
+          '-op' => Array(),
+          '+voice' => Array(),
+          '-voice' => Array(),
+          'kick' => Array(),
+          'topic' => Array(),
+          'quit' => Array(),
+          'msg' => Array(),
+          'authed' => Array(),
+          'nick' => Array(),
+          'notice' => Array(),
+          'out' => Array(),
+          'raw' => Array(), //raw data read in
+          'chanevent' => Array(), //any event you would see in an irc client channel
+          'killbot' => Array(), //called when bot asked to die
+          );
+          //chanevent function will recv args ('#chan', 'rawline')
+         */
     }
 
     /**
@@ -336,26 +312,31 @@ class Irc {
      */
     function connect() {
         $this->state = 'connecting';
-        if($this->ipv == 4) {
-            $ipv = 4;
+
+        if ($this->ipv == 4) {
             $this->sock = $this->pSockets->createTCP($this, 'handleRead', 'handleError', 1, 'handleConnected', 1, $this->bind);
         } else {
-            $ipv = 6;
             $this->sock = $this->pSockets->createTCPv6($this, 'handleRead', 'handleError', 1, 'handleConnected', 1, $this->bind);
         }
-        if(!$this->sock) {
+
+        if (!$this->sock) {
             die("IRC Couldn't create socket");
         }
+
         //TODO Make this config variable
         $this->pSockets->setReconTime($this->sock, 65);
-        socket_getsockname($this->sock, $a, $p);
-        echo "IRC Local IP/PORT: $a/$p\n";
-        echo "IRC Connecting to Host: $this->server Port: $this->port IPv$ipv\n";
 
-        if(!$this->pSockets->connect($this->sock, $this->server, $this->port, $this->timeout)) {
-            $err = socket_last_error($this->sock);
-            echo "IRC Error connecting [$err] (ignoring)\n";
+        $a = $this->pSockets->getOurAddr($this->sock);
+        $p = $this->pSockets->getOurPort($this->sock);
+
+        echo "IRC Local IP/PORT: $a/$p\n";
+        echo "IRC Connecting to Host: $this->server Port: $this->port IPv$this->ipv\n";
+
+        if (!$this->pSockets->connect($this->sock, $this->server, $this->port, $this->timeout)) {
+            list($errno, $errstr) = $this->pSockets->getLastErr($this->sock);
+            echo "IRC Error connecting [$errno] $errstr (ignoring)\n";
         }
+
         $this->pSockets->setRTO($this->RTO, $this->sock);
     }
     
