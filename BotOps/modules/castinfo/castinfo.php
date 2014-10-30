@@ -3,13 +3,131 @@
 require_once('modules/Module.inc');
 require_once('Http.inc');
 
+class cast {
+    public $connected = false;
+    public $number;
+    public $chan;
+    /**
+     * so we can getmod castinfo when we need removed
+     * @var castinfo
+     */
+    public $ci;
+    
+    /**
+     *
+     * @var Irc
+     */
+    public $irc;
+    
+    /**
+     * Instance of http class
+     * @var Http
+     */
+    public $http;
+    
+    /*
+      icy-notice1:<BR>This stream requires <a href="http://www.winamp.com">Winamp</a><BR>
+      icy-notice2:SHOUTcast DNAS/posix(linux x64) v2.2.1.109<BR>
+      icy-name:Loveline - HostFace.net
+      icy-genre:Talk
+      icy-url:http://www.hostface.net
+      content-type:audio/mpeg
+      icy-pub:1
+      icy-br:48
+     */
+    public $name;
+    public $genre;
+    public $url;
+    public $br;
+    public $content_type;
+    
+    public $metalen;
+    
+    public $tometa;
+    
+    public function msg($msg) {
+        $this->irc->msg($this->chan, $msg);
+    }
+    //StreamTitle='Loveline - 2004-10-19';
+    public function recv($data, $store)
+    {
+        if(!$this->connected) {
+            $this->connected = true;
+            $this->metalen = $this->http->getHeaderVal('icy-metaint');
+            if($this->metalen == null) {
+                //explode
+                $this->http->closeConnection();
+                $this->msg("Invalid stream, closing connection.");
+                $this->remove();
+                return;
+            }
+            $this->tometa = $this->metalen;
+            $this->name = $this->http->getHeaderVal('icy-name');
+            $this->genre = $this->http->getHeaderVal('icy-genre');
+            $this->url = $this->http->getHeaderVal('icy-url');
+            $this->br = $this->http->getHeaderVal('icy-br');
+            $this->content_type = $this->http->getHeaderVal('content-type');
+            $this->msgConnected();
+        }
+    }
+    
+    public function msgConnected() {
+        $ip = $this->http->vstore[0];
+        $this->msg("Connection to $ip has been established!");
+        $this->msg("\2Name:\2 $this->name \2Genre:\2 $this->genre \2URL:\2 " .
+            "$this->url \2BitRate:\2 $this->br \2Content-Type:\2 $this->content_type");
+    }
+    
+    public function remove() {
+        unset($this->ci->casts[$this->number]);
+    }
+}
+
 class castinfo extends Module {
-	public function cmd_castinfo($nick, $target, $arg2) {
-		//$this->pIrc->msg($target, 'Disabled until shoutcast v2 is added ;[');
-		//return;
-		if(stripos($arg2, 'http://') === FALSE) {
-			$arg2 = 'http://' . $arg2;
+    
+    public function rehash(&$LastClass)
+    {
+        $this->count = $LastClass->count;
+        $this->casts = &$LastClass->casts;
+        foreach($this->casts as &$c) {
+            $c->ci = &$this;
+        }
+    }
+    
+    /**
+     * Array of cast streams we are tracking
+     * @var Array
+     */
+    public $casts = Array();
+
+    public $count = 0;
+    
+    public function cmd_casttrack($nick, $target, $arg2) {
+        $url = parse_url($arg2);
+		if($url === false || !isset($url['host'])) {
+			$this->pIrc->msg($target, "The url was not recognised.");
+			return;
 		}
+        $cast = new cast();
+        $cast->chan = strtolower($target);
+        $cast->number = $this->count++;
+        $this->casts[$cast->number] = $cast;
+        $cast->http = new Http($this->pSockets, $cast, 'recv');
+        $cast->http->SetStreaming();
+        $cast->http->SetHeader('icy-metadata', '1');
+        $cast->http->getQuery($url, Array($url));
+        $cast->ci = &$this;
+        $cast->irc = $this->pIrc;
+    }
+    
+    public function cmd_caststop($nick, $target, $arg2) {
+        $this->pIrc->msg($target, "Casts will never be stopped.");
+    }
+    
+	public function cmd_castinfo($nick, $target, $arg2) {
+        if(empty($arg2)) {
+            return $this->BADARGS;
+        }
 		$url = parse_url($arg2);
 		if($url === false || !isset($url['host'])) {
 			$this->pIrc->msg($target, "The url was not recognised.");
@@ -28,9 +146,9 @@ class castinfo extends Module {
 		if(!isset($url['query'])) {
 			$q = '';
 		} else {
-			$q = $url['query'];
+			$q = '?' . $url['query'];
 		}
-		$moo = 'http://' .$url['host'] . ':' . $port . $path . $query;
+		$moo = 'http://' . $url['host'] . ':' . $port . $path . $q;
 		//$this->pIrc->msg($target, "Attempting query to $moo");
 		$lol = new Http($this->pSockets, $this, 'castinfoRecv');
 		$lol->getQuery($moo, Array($moo, $target));
@@ -42,7 +160,6 @@ class castinfo extends Module {
 			return;
 		}
 		$ip = $info[0];
-		$target = $info[1];
 		//check if what we got was a playlist file...
 		if (strpos($data, '[playlist]') !== FALSE) {
 	
