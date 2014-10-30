@@ -166,11 +166,11 @@ class scorebot extends Module {
          * * qm         = quietmode, only show join/quit chat
     */
 
-    public $bindip = '76.72.168.188';		//ip our log listener uses
+    public $bindip = '198.46.133.128';		//ip our log listener uses
     public $bindport = 0;	//port our log listener uses
     public $sock;		//We will use this for all our logging communications
 
-    public $rbindip = '76.72.168.188';	//ip our rcon listener uses
+    public $rbindip = '198.46.133.128';	//ip our rcon listener uses
     public $rbindport = 0;	//port our rcon listener uses
     public $rsock;		//We will use this for all our rcon communications
 

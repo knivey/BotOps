@@ -7,3 +7,5 @@ BotOps/main.conf
 BotOps/weather3
 BotOps/oldsrc
 BotOps/httppostsend
+BotOps/chanlogs/*
+BotOps/logs/*
