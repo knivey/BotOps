@@ -8,3 +8,5 @@ BotOps/weather3
 BotOps/oldsrc
 BotOps/httppostsend
 vendor
+BotOps/chanlogs/*
+BotOps/logs/*

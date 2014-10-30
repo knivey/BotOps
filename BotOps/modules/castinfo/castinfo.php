@@ -150,6 +150,7 @@ class castinfo extends Module {
 		}
 		$moo = 'http://' . $url['host'] . ':' . $port . $path . $q;
 		//$this->pIrc->msg($target, "Attempting query to $moo");
+		echo "CastInfo Query: $moo\n";
 		$lol = new Http($this->pSockets, $this, 'castinfoRecv');
 		$lol->getQuery($moo, Array($moo, $target));
 	}
@@ -181,7 +182,7 @@ class castinfo extends Module {
 		}
 	
 		if (strpos($data, "<title>Icecast Streaming Media Server</title>") === FALSE) {
-			if(strpos($data, "<title>SHOUTcast DNAS Summary</title>") !== FALSE) {
+			if(strpos($data, "<title>SHOUTcast DNAS Summary</title>") !== FALSE || strpos($data, "SHOUTcast Server v2") !== FALSE) {
 				$cast = 'ShoutCast2';
 				//$this->pIrc->msg($target, "Got response from $ip looks like $cast");
 			} else {
@@ -209,12 +210,12 @@ class castinfo extends Module {
 		if ($cast == 'ShoutCast2') {
 			$url = parse_url($ip);
 			if(!isset($url['query'])) {
-				$url['query'] = '?sid=1';
+				$url['query'] = 'sid=1';
 			}
 			if(!isset($url['port'])) {
 				$url['port'] = '8000';
 			}
-			$moo = $url['host'] . ':' . $url['port'] . '/stats' . $url['query'];
+			$moo = $url['host'] . ':' . $url['port'] . '/stats' . '?' . $url['query'];
 			//$this->pIrc->msg($target, "Sending query to $moo");
 			$lol = new Http($this->pSockets, $this, 'sc2Recv');
 			$lol->getQuery($moo, $info);

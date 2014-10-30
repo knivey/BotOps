@@ -49,7 +49,9 @@ class appsbot extends Module {
             return $this->ERROR;
         }
         $bots = $this->gM('channel')->botsOnChan($achan);
-        $this->pIrc->msg($chan, "$nick, $achan has already been registered to ". implode(',', $bots));
+        if(!empty($bots)) {
+            $this->pIrc->msg($chan, "$nick, $achan has already been registered to ". implode(',', $bots));
+        }
         if(count($bots) != 0) {
             try {
                 $bnick = $this->mq($this->pIrc->nick);
