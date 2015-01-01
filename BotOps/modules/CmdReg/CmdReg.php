@@ -961,7 +961,7 @@ class CmdReg extends Module {
             $logins = Array(
                 'date' => microtime_float(),
                 'cmd' => $this->binds[$cmd]['bname'],
-                'override' => $override,
+                'override' => int($override),
                 'nick' => $nick,
                 'hand' => $hand,
                 'target' => $target,
@@ -1002,7 +1002,7 @@ class CmdReg extends Module {
         }
         if($retval & $this->rV['OK'] || $retval == NULL) {
             
-            $logins['override'] = $override;
+            $logins['override'] = int($override);
             //everything went OK log if needed
             //get loglvl
             $loglvl = $this->binds[$cmd]['log'];
@@ -1038,7 +1038,7 @@ class CmdReg extends Module {
         }
         if($retval & $this->rV['OVERRIDE']) {
         //TODO If loglevel is right, log that override was used
-            $logins['override'] = true;
+            $logins['override'] = 1;
         }
         if($retval & $this->rV['OK'] || $retval == NULL) {
         //everything went OK log if needed
