@@ -14,9 +14,9 @@ class registry {
             Array('caststop', 'cmd_caststop', "<ip:port>", "Stop a casttrack"),
         ),
         'binds' => Array(
-			Array('castinfo', '0', 'castinfo', "", "", "", '0'),
-            Array('casttrack', '0', 'casttrack', "", "", "", '0'),
-            Array('caststop', '0', 'caststop', "", "", "", '0'),
+            Array('castinfo', '0', 'castinfo', "", "", "", '0'),
+            Array('casttrack', 'D', 'casttrack', "", "", "", '0'),
+            Array('caststop', 'D', 'caststop', "", "", "", '0'),
         )
     );
 }
