@@ -1121,7 +1121,7 @@ class channel extends Module {
         }
         try {
             $bnick = $this->mq($this->pIrc->nick);
-            $stmt = $this->pMysql->prepare("INSERT INTO `$bnick` (name) VALUES(:chan)");
+            $stmt = $this->pMysql->prepare("INSERT INTO `$bnick` (name,settings) VALUES(:chan, 'a:0:{}')");
             $stmt->execute(Array(':chan'=>$chan));
             $stmt->closeCursor();
         } catch (PDOException $e) {
