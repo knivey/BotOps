@@ -5,12 +5,15 @@
  * and open the template in the editor.
  */
 
+require_once('Tools/simple_html_dom.php');
 require_once('modules/Module.inc');
 require_once('Http.inc');
 
-class urbandict extends Module {
+class urbandict extends Module
+{
 
-    function cmd_ud($nick, $chan, $msg) {
+    function cmd_ud($nick, $chan, $msg)
+    {
         if ($msg == '') {
             return $this->BADARGS;
         }
@@ -19,45 +22,33 @@ class urbandict extends Module {
         $lol->getQuery('http://www.urbandictionary.com/define.php?term=' . urlencode(htmlentities($msg)), $chan);
     }
 
-    function ud($data, $chan) {
+    function ud($data, $chan)
+    {
         if (is_array($data)) {
-            $this->pIrc->msg($chan, "\2UrbanDorcktinairy:\2 Error ($data[0]) $data[1]");
+            $this->pIrc->msg($chan, "\2UrbanDictionary:\2 Error ($data[0]) $data[1]");
             return;
         }
-
-        $startText = "<div class='word'>";
-        $endText   = '</div>';
-        $start     = strpos($data, $startText) + strlen($startText);
-        $end       = strpos($data, $endText, $start);
-        $word      = str_replace("\r", '', substr($data, $start, $end - $start));
-
-        $startText  = "<div class='meaning'>";
-        $endText    = '</div>';
-        $start      = strpos($data, $startText) + strlen($startText);
-        $end        = strpos($data, $endText, $start);
-        $definition = str_replace("\r", ' ', substr($data, $start, $end - $start));
-
-        $startText = "<div class='example'>";
-        $endText   = '</div>';
-        $start     = strpos($data, $startText) + strlen($startText);
-        $end       = strpos($data, $endText, $start);
-        $example   = str_replace("\r", ' ', substr($data, $start, $end - $start));
-
-        $definition = strip_tags(html_entity_decode(str_replace("<br/>", " ", $definition), ENT_QUOTES));
-        $example    = strip_tags(html_entity_decode(str_replace("<br/>", " | ", $example), ENT_QUOTES));
-        $word       = strip_tags(html_entity_decode(str_replace("<br/>", " ", $word)));
-
-        $word       = str_replace("\n", '', $word);
-        $definition = str_replace("\n", '', $definition);
-        $example    = str_replace("\n", '', $example);
 
         if (strpos($data, "</i> isn't defined <a href=\"/add.php?") !== FALSE) {
             $this->pIrc->msg($chan, "\2UrbanDict:\2 Your query hasn't been defined yet.", 1, 1);
             return;
         }
 
+        $doc = str_get_html($data);
+
+        $word    = $doc->find('a.word')[0]->plaintext;
+        $meaning = $doc->find('div.meaning')[0]->plaintext;
+        $example = $doc->find('div.example')[0]->plaintext;
+
+        $meaning = html_entity_decode($meaning, ENT_QUOTES);
+        $example = html_entity_decode($example, ENT_QUOTES);
+        $word    = html_entity_decode($word, ENT_QUOTES);
+
+        $meaning = str_replace("\n", ' ', $meaning);
+        $example = str_replace("\n", ' | ', $example);
+
         $this->pIrc->msg($chan, "\2UrbanDict:\2 $word", 1, 1);
-        $this->pIrc->msg($chan, "\2Definition:\2 $definition", 1, 1);
+        $this->pIrc->msg($chan, "\2Meaning:\2 $meaning", 1, 1);
         $this->pIrc->msg($chan, "\2Example:\2 $example", 1, 1);
     }
 
