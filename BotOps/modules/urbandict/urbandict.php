@@ -40,12 +40,19 @@ class urbandict extends Module
         $by      = $doc->find('div.contributor')[0]->plaintext;
         $meaning = $doc->find('div.meaning')[0]->plaintext;
         $example = $doc->find('div.example')[0]->plaintext;
-        $related = $doc->find('ul.no-bullet')[0]->plaintext;
+        $relatedA = $doc->find('ul.no-bullet>.tag');
 
         $meaning = html_entity_decode($meaning, ENT_QUOTES);
         $example = html_entity_decode($example, ENT_QUOTES);
         $word    = html_entity_decode($word, ENT_QUOTES);
         $by      = html_entity_decode($by, ENT_QUOTES);
+        
+        $related = Array();;
+        foreach($relatedA as $e) {
+            $related[] = html_entity_decode($e->plaintext, ENT_QUOTES);
+        }
+        $related = implode(", ", $related);
+        
         $related = html_entity_decode($related, ENT_QUOTES);
         
         $by = preg_replace("/^ by/", "\2By:\2", $by);
