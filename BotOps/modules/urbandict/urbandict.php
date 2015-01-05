@@ -29,7 +29,7 @@ class urbandict extends Module
             return;
         }
 
-        if (strpos($data, "</i> isn't defined <a href=\"/add.php?") !== FALSE) {
+        if (strpos($data, "</i> isn't defined ") !== FALSE) {
             $this->pIrc->msg($chan, "\2UrbanDict:\2 Your query hasn't been defined yet.", 1, 1);
             return;
         }
