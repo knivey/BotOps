@@ -130,7 +130,7 @@ function get_akey_nc($key, $ar) {
 				return $k;
 		}
 	}
-	return '';
+	return NULL;
 }
 
 /**

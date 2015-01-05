@@ -26,6 +26,8 @@
  *  then sends results back through a callback function
  * ************************************************************************* */
 
+require_once 'Tools/Tools.php';
+
 class Http
 {
 
@@ -168,7 +170,7 @@ class Http
             $name = $n;
             echo "Http: Warning: header $name already set updating it";
         }
-        $this->sendHeader[$name] = $val;
+        $this->sendHeaders[$name] = $val;
     }
 
     /**
@@ -183,7 +185,7 @@ class Http
         if ($n != null) {
             return;
         }
-        $this->sendHeader[$name] = $val;
+        $this->sendHeaders[$name] = $val;
     }
 
     //parameters should just be an array
@@ -242,7 +244,7 @@ class Http
         $postQuery .= "\r\n" . $query;
 
         //for debugging
-        //file_put_contents('httppostsend', $postQuery);
+        file_put_contents('httppostsend', $postQuery);
 
         $this->sockets->connect($this->sock, $url['host'], $url['port'],
                                 $this->timeout, $this->timeout);
@@ -301,6 +303,7 @@ class Http
         $this->sockets->connect($this->sock, $url['host'], $url['port'],
                                 $this->timeout, $this->timeout);
         $this->query = $getQuery;
+        file_put_contents('httppostsend', $getQuery);
     }
 
     /**
