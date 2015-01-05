@@ -577,7 +577,7 @@ class Http
             $moved = true;
         }
         $status = $this->header['status'];
-        if (($status == '302' || $status == '301' || $status == '303') && !$this->XMLPRC && $moved !== false) {
+        if (($status == '302' || $status == '301' || $status == '303') && !$this->XMLRPC && $moved !== false) {
             //handle redirections
             //<p>The document has moved <a href="http://www.youtube.com/watch?v=nccpL3lPYYk&amp;feature=youtu.be">here</a>
             //i think we just need to handle that response for now..
