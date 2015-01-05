@@ -45,7 +45,17 @@ class urbandict extends Module
         $word    = html_entity_decode($word, ENT_QUOTES);
 
         $meaning = str_replace("\n", ' ', $meaning);
-        $example = str_replace("\n", ' | ', $example);
+        $meaning = str_replace("\r", ' ', $meaning);
+        
+        $example = str_replace("\r", "\n", $example);
+        $example = explode("\n", $example);
+        foreach ($example as $key => &$ex) {
+            $ex = trim($ex);
+            if ($ex == '') {
+                unset($example[$key]);
+            }
+        }
+        $example = implode(' | ', $example);
 
         $this->pIrc->msg($chan, "\2UrbanDict:\2 $word", 1, 1);
         $this->pIrc->msg($chan, "\2Meaning:\2 $meaning", 1, 1);
