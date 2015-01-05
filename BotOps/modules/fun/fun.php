@@ -5,29 +5,12 @@ require_once('Http.inc');
 
 class fun extends Module {
 
-    public function cmd_cal($nick, $chan, $msg) {
-        $cal = trim(`cal`);
-        $cal = explode("\n", $cal);
-        $out = array();
-
-        foreach ($cal as $l) {
-            $ns      = explode(' ', $l);
-            $lineout = array();
-
-            foreach ($ns as &$n) {
-                if ($n[0] == '_') {
-                    $lineout[] = chr(22) . str_replace('_', '', $n) . chr(22);
-                } else {
-                    $lineout[] = $n;
-                }
-            }
-
-            $out[] = implode(' ', $lineout);
-        }
-
-        $out = implode("\n", $out);
-
-        $this->pIrc->msg($chan, $out, 0, 0);
+    public function cmd_cal($nick, $chan, $msg)
+    {
+        $cal = trim(`cal --color=always`);
+        $cal = str_replace(chr(27) . '[7m', chr(22), $cal);
+        $cal = str_replace(chr(27) . '[27m', chr(22), $cal);
+        $this->pIrc->msg($chan, $cal, 0, 0);
     }
 
     public function cmd_tweet($nick, $target, $arg2) {
