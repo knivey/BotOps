@@ -36,6 +36,7 @@ class urbandict extends Module
 
         $doc = str_get_html($data);
 
+        $cnt = count($doc->find('div.meaning'));
         $word    = $doc->find('a.word')[0]->plaintext;
         $by      = $doc->find('div.contributor')[0]->plaintext;
         $meaning = $doc->find('div.meaning')[0]->plaintext;
@@ -49,7 +50,7 @@ class urbandict extends Module
         $by = preg_replace("/^ by/", "\2By:\2", $by);
 
         $meaning = str_replace("\n", ' ', $meaning);
-        $meaning = str_replace("\r", ' ', $meaning);
+        $meaning = trim(str_replace("\r", ' ', $meaning));
         
         $example = str_replace("\r", "\n", $example);
         $example = explode("\n", $example);
@@ -61,7 +62,7 @@ class urbandict extends Module
         }
         $example = implode(' | ', $example);
 
-        $this->pIrc->msg($chan, "\2UrbanDict:\2 $word $by", 1, 1);
+        $this->pIrc->msg($chan, "\2UrbanDict:\2 $word \2Showing:\2 1 of $cnt $by", 1, 1);
         $this->pIrc->msg($chan, "\2Meaning:\2 $meaning", 1, 1);
         $this->pIrc->msg($chan, "\2Example:\2 $example", 1, 1);
     }
