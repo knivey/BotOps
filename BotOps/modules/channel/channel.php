@@ -898,7 +898,7 @@ class channel extends Module
         }
         $total = $snum + $num;
         if (isset($arg[0]) && $arg[0] == 'total') {
-            $irc->notice($nick, "\2Total:\2 $total");
+            $this->pIrc->notice($nick, "\2Total:\2 $total");
             return;
         }
         $this->pIrc->notice($nick,
