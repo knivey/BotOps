@@ -606,7 +606,7 @@ class Http
             
             $purl = parse_url($url);
             if(!array_key_exists('host', $purl)) {
-                $url = $this->host . $url;
+                $url = 'Http://' . $this->host . $url;
             }
 
             $redirect = new Http($this->sockets, $this->pClass, $this->pFunc,
