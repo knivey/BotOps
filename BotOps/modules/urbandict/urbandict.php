@@ -87,10 +87,9 @@ class urbandict extends Module
         }
         $example = implode(' | ', $example);
 
-        $this->pIrc->msg($chan, "\2UrbanDict:\2 $word $by", 1, 1);
+        $this->pIrc->msg($chan, "\2UrbanDict:\2 $word $by \2Related:\2 $related", 1, 1);
         $this->pIrc->msg($chan, "\2Meaning:\2 $meaning", 1, 1);
         $this->pIrc->msg($chan, "\2Example:\2 $example", 1, 1);
-        $this->pIrc->msg($chan, "\2Related:\2 $related", 1, 1);
     }
 
 }
