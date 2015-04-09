@@ -703,6 +703,7 @@ class fun extends Module {
         }
 
         $out = str_replace("\n", ' ', str_replace("\r", ' ', $out));
+        $out = html_entity_decode($out);
         $this->pIrc->msg($chan, $out);
     }
 

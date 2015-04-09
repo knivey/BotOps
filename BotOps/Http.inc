@@ -132,6 +132,12 @@ class Http
      * @var string
      */
     private $query;
+    
+    /**
+     * Hostname and port (if applicable) of the website being queried
+     * @var string
+     */
+    private $host;
 
     function __construct(&$sockets, &$pClass, $pFunc, $v = null, $timeout = 5)
     {
@@ -221,6 +227,9 @@ class Http
 
         if (!array_key_exists('port', $url)) {
             $url['port'] = 80;
+            $this->host = $url['host'];
+        } else {
+            $this->host = $url['host'] . ':' . $url['port'];
         }
 
         if (array_key_exists('query', $url)) {
@@ -231,7 +240,7 @@ class Http
 
         $this->defaultHeader('Host', $url['host'] . ':' . $url['port']);
         $this->defaultHeader('Content-length', strlen($query));
-
+        
         if ($this->XMLRPC) {
             $this->defaultHeader('Content-type', 'text/xml');
         } else {
@@ -590,6 +599,11 @@ class Http
                 $url       = substr($data, $start, $end - $start);
             } else {
                 $url = $loc;
+            }
+            
+            $purl = parse_url($url);
+            if(!array_key_exists('host', $purl)) {
+                $url = $this->host . $url;
             }
 
             $redirect = new Http($this->sockets, $this->pClass, $this->pFunc,
