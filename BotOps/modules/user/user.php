@@ -311,8 +311,8 @@ class user extends Module {
                     }
                 }
                 $stmt->closeCursor();
-                $stmt = $this->pMysql->prepare("INSERT INTO `users` (`name`,`pass`,`datemade`,`laston`,`host`,`email`)".
-                        " VALUES(:name,:pass,:date,:laston,:host,:email)");
+                $stmt = $this->pMysql->prepare("INSERT INTO `users` (`name`,`pass`,`datemade`,`laston`,`host`,`email`,`chans`)".
+                        " VALUES(:name,:pass,:date,:laston,:host,:email,:chans)");
                 $stmt->execute(Array(
                     ':name' => $arg[0],
                     ':pass' => md5($arg[1]),
@@ -320,6 +320,7 @@ class user extends Module {
                     ':laston' => time(),
                     ':host' => $host,
                     ':email' => $arg[2],
+                    ':chans' => 'a:0:{}',
                     ));
                 $stmt->closeCursor();
             } catch (PDOException $e) {
