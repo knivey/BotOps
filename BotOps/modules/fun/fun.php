@@ -667,7 +667,7 @@ class fun extends Module {
 
         $doc = str_get_html($data);
 
-        $name = $doc->getElementById('steamname')->plaintext;
+        $name = @$doc->getElementById('steamname')->plaintext;
         if ($name == NULL) {
             $this->pIrc->msg($chan, "\2:SteamRep:\2 Sorry, the specified ID " .
                 "was not found");
