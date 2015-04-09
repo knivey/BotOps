@@ -286,6 +286,9 @@ class Http
 
         if (!array_key_exists('port', $url)) {
             $url['port'] = 80;
+            $this->host = $url['host'];
+        } else {
+            $this->host = $url['host'] . ':' . $url['port'];
         }
 
         if (array_key_exists('query', $url)) {
