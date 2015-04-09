@@ -1,5 +1,6 @@
 <?php
 
+require_once('Tools/simple_html_dom.php');
 require_once('modules/Module.inc');
 require_once('Http.inc');
 
@@ -648,77 +649,37 @@ class fun extends Module {
     }
 
     public function cmd_steamrep($nick, $chan, $query) {
-        if (empty($query)) { // No Arguments - Return
-            return $this->gM('CmdReg')->rV['BADARGS'];
+        if (empty($query)) {
+            return $this->BADARGS;
         }
-
-        //$q = mb_convert_encoding($query, 'HTML-ENTITIES', "UTF-8");
+        
         $q            = urlencode(htmlentities($query));
         $steamrepHttp = new Http($this->pSockets, $this, 'steamrepRead');
         $steamrepHttp->getQuery("http://steamrep.com/search?q=$q", $chan);
     }
 
-    public function steamrepRead($body, $chan) {
-        $data = $body;
+    public function steamrepRead($data, $chan)
+    {
         if (is_array($data)) {
             $this->pIrc->msg($chan, "\2SteamRep:\2 Error ($data[0]) $data[1]");
             return;
         }
 
-        if (strpos($body, '<span class="steamname ">') === FALSE) {
-            $this->pIrc->msg($chan, "\2:SteamRep:\2 Sorry, the specified ID could not be found or the Steam Community servers are down.");
+        $doc = str_get_html($data);
+
+        $name = $doc->getElementById('steamname')->plaintext;
+        if ($name == NULL) {
+            $this->pIrc->msg($chan,
+                             "\2:SteamRep:\2 Sorry, the specified ID could not be found or the Steam Community servers are temporarily down.");
             return;
         }
 
-        $s     = '<span class="steamname ">';
-        $e     = '</span>';
-        $start = strpos($body, $s) + strlen($s);
-        $end   = strpos($body, $e, $start);
-        $name  = trim(strip_tags(substr($body, $start, $end - $start)));
+        $membersince  = $doc->getElementById('membersince')->plaintext;
+        $privacystate = $doc->getElementById('privacystate')->plaintext;
+        $tradeban     = $doc->getElementById('tradebanstatus')->plaintext;
+        $vacbanned    = $doc->getElementById('vacbanned')->plaintext;
 
-        $s       = '<span class="a01" style="color:gray;">Summary: </span>';
-        $e       = '</div>';
-        $start   = strpos($body, $s) + strlen($s);
-        $end     = strpos($body, $e, $start);
-        $summary = trim(strip_tags(substr($body, $start, $end - $start)));
-
-        $s      = '<span class="a01"><span style="color:gray;">Joined Steam:</span> ';
-        $e      = '  | ';
-        $start  = strpos($body, $s) + strlen($s);
-        $end    = strpos($body, $e, $start);
-        $joined = trim(strip_tags(substr($body, $start, $end - $start)));
-
-        $s     = '<span style="color:gray;">VAC:</span> ';
-        $e     = '</span>';
-        $start = strpos($body, $s) + strlen($s);
-        $end   = strpos($body, $e, $start);
-        $vac   = trim(strip_tags(substr($body, $start, $end - $start)));
-
-        $s        = '<span class="a01"><span style="color:gray;">Trade Ban Status:</span> <span class="a03">';
-        $e        = '</span>';
-        $start    = strpos($body, $s) + strlen($s);
-        $end      = strpos($body, $e, $start);
-        $tradeban = trim(strip_tags(substr($body, $start, $end - $start)));
-
-        $s           = '<span style="color:gray;">Hours Played (2 weeks):</span> ';
-        $e           = '</span>';
-        $start       = strpos($body, $s) + strlen($s);
-        $end         = strpos($body, $e, $start);
-        $hoursplayed = trim(strip_tags(substr($body, $start, $end - $start)));
-
-        $s      = '<span style="color:gray;">Online status:</span>';
-        $e      = '</span>';
-        $start  = strpos($body, $s) + strlen($s);
-        $end    = strpos($body, $e, $start);
-        $online = trim(strip_tags(substr($body, $start, $end - $start)));
-        $online = str_replace('online - ', '', $online);
-        $online = str_replace('offline - ', '', $online);
-
-        $s        = '<div  id="steamids" style="font-family:Courier;white-space:pre;overflow:auto;">';
-        $e        = '</div>';
-        $start    = strpos($body, $s) + strlen($s);
-        $end      = strpos($body, $e, $start);
-        $sids     = trim(strip_tags(substr($body, $start, $end - $start)));
+        $sids     = $doc->getElementById('steamids')->plaintext;
         $sids     = explode("\n", $sids);
         $steamids = Array();
 
@@ -727,8 +688,19 @@ class fun extends Module {
             $steamids[$ss[0]] = $ss[1];
         }
 
-        $out = "\2:SteamRep: Name:\2 $name \2Joined:\2 $joined \2VAC:\2 $vac \2TradeBan:\2 $tradeban \2Hours Played(2w):\2 $hoursplayed \2SteamID32:\2 $steamids[steamID32] \2Summary:\2 $summary \2Online:\2 $online";
-        $out = html_entity_decode($out);
+        $out = "\2:SteamRep:\2 $name \2Joined:\2 $membersince \2VAC:\2 " .
+            "$vacbanned \2TradeBan:\2 $tradeban \2Privacy State:\2 " .
+            "$privacystate \2SteamID32:\2 $steamids[steamID32]";
+
+
+        $bannedfriends = $doc->getElementById('scammerfriendsline')->plaintext;
+        if ($bannedfriends != NULL) {
+            $bannedfriends = str_replace('Banned Friends:', '', $bannedfriends);
+            $bannedfriends = trim($bannedfriends);
+            $out .= " \2Banned Friends:\2 $bannedfriends";
+        }
+
+        $out = str_replace("\n", ' ', str_replace("\r", ' ', $out));
         $this->pIrc->msg($chan, $out);
     }
 
