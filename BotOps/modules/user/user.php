@@ -243,10 +243,11 @@ class user extends Module {
         $this->pIrc->notice($nick, "Your password has been updated, don't forget it!");
     }
 
-    function cmd_register($nick, $target, $args) {
-        $arg = explode(' ', $args);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
+    function cmd_register($nick, $target, $args)
+    {
+        $arg    = explode(' ', $args);
+        $host   = $this->pIrc->n2h($nick);
+        $hand   = $this->gM('user')->byHost($host);
         $hflags = $this->gM('user')->flags($hand);
         if ($hand != '') {
             $this->pIrc->notice($nick, "You are already authed to account $hand");
@@ -266,22 +267,24 @@ class user extends Module {
         //    return 8;
         //}
         if (!ereg("^[a-zA-Z0-9_\-\+`<>\|]+$", $arg[0])) {
-            $this->pIrc->notice($nick, "Username may only contain alpha-numeric characters and the following _ - + < > ` |");
+            $this->pIrc->notice($nick,
+                                "Username may only contain alpha-numeric characters and the following _ - + < > ` |");
             return 8;
         }
         if (empty($arg[2])) {
-            $this->pIrc->notice($nick, "Note without an email set you will not be able to recover lost passwords if you decide to set and email later please /msg " . $this->pIrc->currentNick() . " SET EMAIL <new address>");
+            $this->pIrc->notice($nick,
+                                "Note without an email set you will not be able to recover lost passwords if you decide to set and email later please /msg " . $this->pIrc->currentNick() . " SET EMAIL <new address>");
             $date = time();
             try {
-                $stmt = $this->pMysql->prepare("INSERT INTO `users` (`name`,`pass`,`datemade`,`laston`,`host`)".
-                        " VALUES(:name,:pass,:date,:laston,:host)");
+                $stmt = $this->pMysql->prepare("INSERT INTO `users` (`name`,`pass`,`datemade`,`laston`,`host`)" .
+                    " VALUES(:name,:pass,:date,:laston,:host)");
                 $stmt->execute(Array(
-                    ':name' => $arg[0],
-                    ':pass' => md5($arg[1]),
-                    ':date' => time(),
+                    ':name'   => $arg[0],
+                    ':pass'   => md5($arg[1]),
+                    ':date'   => time(),
                     ':laston' => time(),
-                    ':host' => $host,
-                    ));
+                    ':host'   => $host,
+                ));
                 $stmt->closeCursor();
             } catch (PDOException $e) {
                 $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
@@ -290,7 +293,8 @@ class user extends Module {
                 return $this->ERROR;
             }
             $this->pIrc->notice($nick, "You are now authed to account $arg[0]");
-            $this->pIrc->msg('#botstaff', "Account $arg[0] has been regged by $nick. (no email set)");
+            $this->pIrc->msg('#botstaff',
+                             "Account $arg[0] has been regged by $nick. (no email set)");
             //$bnet->msg('&bots', "Account $arg[0] has been regged by $nick. (no email set)");
             //$ppl[$nick]['user'] = $arg[0];
             //foreach($bnet->luseron_slot as $slot) {
@@ -300,28 +304,30 @@ class user extends Module {
         } else {
             try {
                 if (!isemail($arg[2])) {
-                    $this->pIrc->notice($nick, "$arg[2] is not a valid email address");
+                    $this->pIrc->notice($nick,
+                                        "$arg[2] is not a valid email address");
                     return 8;
                 } else {
                     $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `email`=:email");
-                    $stmt->execute(Array(':email'=>$arg[2]));
+                    $stmt->execute(Array(':email' => $arg[2]));
                     if ($stmt->rowCount() > 0) {
-                        $this->pIrc->notice($nick, "$arg[2] has been used to register more than one(1) account. Please use a different email address.");
+                        $this->pIrc->notice($nick,
+                                            "$arg[2] has been used to register more than one(1) account. Please use a different email address.");
                         return 8;
                     }
                 }
                 $stmt->closeCursor();
-                $stmt = $this->pMysql->prepare("INSERT INTO `users` (`name`,`pass`,`datemade`,`laston`,`host`,`email`,`chans`)".
-                        " VALUES(:name,:pass,:date,:laston,:host,:email,:chans)");
+                $stmt = $this->pMysql->prepare("INSERT INTO `users` (`name`,`pass`,`datemade`,`laston`,`host`,`email`,`chans`)" .
+                    " VALUES(:name,:pass,:date,:laston,:host,:email,:chans)");
                 $stmt->execute(Array(
-                    ':name' => $arg[0],
-                    ':pass' => md5($arg[1]),
-                    ':date' => time(),
+                    ':name'   => $arg[0],
+                    ':pass'   => md5($arg[1]),
+                    ':date'   => time(),
                     ':laston' => time(),
-                    ':host' => $host,
-                    ':email' => $arg[2],
-                    ':chans' => 'a:0:{}',
-                    ));
+                    ':host'   => $host,
+                    ':email'  => $arg[2],
+                    ':chans'  => 'a:0:{}',
+                ));
                 $stmt->closeCursor();
             } catch (PDOException $e) {
                 $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
@@ -335,7 +341,8 @@ class user extends Module {
             //}
             $this->pIrc->notice($nick, "You are now authed to account $arg[0]");
             //$ppl[$nick]['user'] = $arg[0];
-            $this->pIrc->msg('#botstaff', "Account $arg[0] has been regged by $nick.");
+            $this->pIrc->msg('#botstaff',
+                             "Account $arg[0] has been regged by $nick.");
             //$bnet->msg('&bots', "Account $arg[0] has been regged by $nick.");
             return 1;
         }
