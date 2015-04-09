@@ -37,6 +37,12 @@ class urbandict extends Module
         $doc = str_get_html($data);
 
         $word    = $doc->find('a.word')[0]->plaintext;
+        
+        if(!$word) {
+            $this->pIrc->msg($chan, "\2UrbanDict:\2 Your query hasn't been defined yet.", 1, 1);
+            return;
+        }
+        
         $by      = $doc->find('div.contributor')[0]->plaintext;
         $meaning = $doc->find('div.meaning')[0]->plaintext;
         $example = $doc->find('div.example')[0]->plaintext;
@@ -47,9 +53,14 @@ class urbandict extends Module
         $word    = html_entity_decode($word, ENT_QUOTES);
         $by      = html_entity_decode($by, ENT_QUOTES);
         
-        $related = Array();;
+        $related = Array();
+        $cnt = 0;
         foreach($relatedA as $e) {
-            $related[] = html_entity_decode($e->plaintext, ENT_QUOTES);
+            $related[] = trim(html_entity_decode($e->plaintext, ENT_QUOTES));
+            $cnt++;
+            if($cnt > 5) {
+                break;
+            }
         }
         $related = implode(", ", $related);
         
