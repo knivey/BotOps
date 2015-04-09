@@ -684,7 +684,7 @@ class fun extends Module {
         $sids     = explode("\n", $sids);
         $steamids = Array();
         foreach ($sids as $sid) {
-            $ss               = explode(': ', ltrim($sid, '|'));
+            $ss               = explode(': ', trim(ltrim($sid, '|')));
             $steamids[$ss[0]] = $ss[1];
         }
 
