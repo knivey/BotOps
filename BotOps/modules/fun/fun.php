@@ -669,22 +669,22 @@ class fun extends Module {
 
         $name = $doc->getElementById('steamname')->plaintext;
         if ($name == NULL) {
-            $this->pIrc->msg($chan,
-                             "\2:SteamRep:\2 Sorry, the specified ID could not be found or the Steam Community servers are temporarily down.");
+            $this->pIrc->msg($chan, "\2:SteamRep:\2 Sorry, the specified ID " .
+                "was not found");
             return;
         }
+        $name = trim($name);
 
-        $membersince  = $doc->getElementById('membersince')->plaintext;
-        $privacystate = $doc->getElementById('privacystate')->plaintext;
-        $tradeban     = $doc->getElementById('tradebanstatus')->plaintext;
-        $vacbanned    = $doc->getElementById('vacbanned')->plaintext;
+        $membersince  = trim($doc->getElementById('membersince')->plaintext);
+        $privacystate = trim($doc->getElementById('privacystate')->plaintext);
+        $tradeban     = trim($doc->getElementById('tradebanstatus')->plaintext);
+        $vacbanned    = trim($doc->getElementById('vacbanned')->plaintext);
+        $sids         = trim($doc->getElementById('steamids')->plaintext);
 
-        $sids     = $doc->getElementById('steamids')->plaintext;
         $sids     = explode("\n", $sids);
         $steamids = Array();
-
         foreach ($sids as $sid) {
-            $ss               = explode(': ', $sid);
+            $ss               = explode(': ', ltrim($sid, '|'));
             $steamids[$ss[0]] = $ss[1];
         }
 
