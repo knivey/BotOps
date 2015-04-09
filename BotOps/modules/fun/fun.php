@@ -695,7 +695,7 @@ class fun extends Module {
             "$privacystate \2SteamID32:\2 $steamids[steamID32]";
 
 
-        $bannedfriends = $doc->getElementById('scammerfriendsline')->plaintext;
+        $bannedfriends = @$doc->getElementById('scammerfriendsline')->plaintext;
         if ($bannedfriends != NULL) {
             $bannedfriends = str_replace('Banned Friends:', '', $bannedfriends);
             $bannedfriends = trim($bannedfriends);
