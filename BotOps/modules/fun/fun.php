@@ -680,12 +680,14 @@ class fun extends Module {
         $tradeban     = trim($doc->getElementById('tradebanstatus')->plaintext);
         $vacbanned    = trim($doc->getElementById('vacbanned')->plaintext);
         $sids         = trim($doc->getElementById('steamids')->plaintext);
+        $sids         = explode("|", $sids);
+        $steamids     = Array();
 
-        $sids     = explode("\n", $sids);
-        $steamids = Array();
         foreach ($sids as $sid) {
-            $ss               = explode(': ', trim(ltrim($sid, '|')));
-            $steamids[$ss[0]] = $ss[1];
+            $ss = explode(': ', trim($sid));
+            if (array_key_exists(1, $ss)) {
+                $steamids[$ss[0]] = $ss[1];
+            }
         }
 
         $out = "\2:SteamRep:\2 $name \2Joined:\2 $membersince \2VAC:\2 " .
