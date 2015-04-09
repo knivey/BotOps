@@ -190,11 +190,6 @@ class fun extends Module {
         $lol->getQuery("http://ajax.googleapis.com/ajax/services/search/web?v=1.0&q=" . urlencode(htmlentities($arg2)), $target);
     }
 
-    public function cmd_gcalc($nick, $target, $arg2) {
-        $lol = new Http($this->pSockets, $this, 'googleCalc');
-        $lol->getQuery("http://www.google.com/ig/calculator?hl-en&q=" . urlencode(htmlentities($arg2)), $target);
-    }
-
     public function cmd_qball($nick, $target, $arg2) {
         try {
             $stmt = $this->pMysql->query("select * from qball order by rand() limit 1");
@@ -330,12 +325,6 @@ class fun extends Module {
         $lol->getQuery("http://www.textsfromlastnight.com/Random-Texts-From-Last-Night.html", $target);
     }
 
-    public function v_gcalc($args) {
-        $lol = new Http($this->pSockets, $this, 'googleCalc');
-        $lol->getQuery("http://www.google.com/search?q=" . urlencode(htmlentities($args[0])), $args);
-        return Array('pause' => 'pause');
-    }
-
     public function txts($data, $target) {
         if (is_array($data)) {
             $this->pIrc->msg($target, "\2Txts:\2 Error ($data[0]) $data[1]");
@@ -403,58 +392,6 @@ class fun extends Module {
         $quote     = htmlspecialchars_decode($quote, ENT_QUOTES);
 
         $this->pIrc->msg($target, "\2Bash(\2$num\2):\2 $quote");
-    }
-
-    public function googleCalc($data, $target) {
-        if (is_array($data) && !is_array($target)) {
-            $this->pIrc->msg($target, "\2Google Calc:\2 Error ($data[0]) $data[1]");
-            return;
-        }
-
-        if (is_array($data) && is_array($target)) {
-            $c = $target['cbClass'];
-            $f = $target['cbFunc'];
-            $c->$f("\Google Define:\2 Error ($data[0]) $data[1]");
-            return;
-        }
-
-        $data = str_replace('rhs:', '"rhs":', $data);
-        $data = str_replace('lhs:', '"lhs":', $data);
-        $data = str_replace('error:', '"error":', $data);
-        $data = str_replace('icc:', '"icc":', $data);
-        $data = json_decode($data, true);
-
-        if ($data == NULL) {
-            $res = NULL;
-        } else {
-            if ($data['error'] != '') {
-                $res = "Invalid Calculation!";
-            } else {
-                $res = "$data[lhs] = $data[rhs]";
-            }
-        }
-
-        //I beleive this is for $var compatibility
-        if (!is_array($target)) {
-            $this->pIrc->msg($target, "\2GCalc:\2 $res");
-            return;
-        }
-
-        $c = $target['cbClass'];
-        $f = $target['cbFunc'];
-
-        //we only want answers damnit
-        if ($res != NULL) {
-            $resb = explode('=', $res);
-        } else {
-            $resb = 'CalcError';
-        }
-
-        if (array_key_exists(1, $resb)) {
-            $c->$f(trim($resb[1]));
-        } else {
-            $c->$f($res);
-        }
     }
 
     public function googleSearch($data, $target) {

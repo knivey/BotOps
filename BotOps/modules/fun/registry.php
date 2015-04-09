@@ -6,18 +6,13 @@ class registry {
     var $author      = 'knivey';
     var $description = "Fun module, toy commands";
     var $require = Array('CmdReg');
-    var $ParseUtil = Array(
-        'vars' => Array(
-            Array('gcalc', 'v_gcalc', "query", "Google Calculator")
-        )
-    );
+
     var $CmdReg = Array(
         'funcs' => Array(
             Array('fml', 'cmd_fml', "", "Random FML stories"),
             Array('fmll', 'cmd_fmll', "", "Random FML stories Long output"),
             Array('define', 'cmd_define', "", "Define a word"),
             Array('google', 'cmd_google', "<query>", "Search google"),
-            Array('gcalc', 'cmd_gcalc', "<query>", "Use Google Calc"),
             Array('ping', 'cmd_ping', "", "Ping/Pong"),
             Array('spell', 'cmd_spell', "<word>", "spellcheck"),
             Array('time', 'cmd_time', "", "Time"),
@@ -39,7 +34,6 @@ class registry {
             Array('fmll', '0', 'fmll', "", "", "", '0'),
             Array('define', '0', 'define', "", "", "", '0'),
             Array('google', '0', 'google', "", "", "", '0'),
-            Array('gcalc', '0', 'gcalc', "", "", "", '0'),
             Array('ping', '0', 'ping', "", "", "", '0'),
             Array('spell', '0', 'spell', "", "", "", '0'),
             Array('time', '0', 'time', "", "", "", '0'),
