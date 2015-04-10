@@ -100,7 +100,7 @@ class admin extends Module {
         }
         $name = $this->botExists($argv[0]);
         if (!$name) {
-            $this->pIrc->notice($nick, "Bot $a doesn't exist in my database!");
+            $this->pIrc->notice($nick, "Bot $argv[0] doesn't exist in my database!");
             return $this->ERROR;
         }
         try {
@@ -175,8 +175,8 @@ class admin extends Module {
             }
             //rename the bot's table
             try {
-                $qname = $this->mq($this->pIrc->nick);
-                $qnewval = $this->mq($this->pIrc->nick);
+                $qname = $this->mq($name);
+                $qnewval = $this->mq($newval);
                 $this->pMysql->query("RENAME TABLE `$qname` TO `$qnewval`");
             } catch (PDOException $e) {
                 $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
