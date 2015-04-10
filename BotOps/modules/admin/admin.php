@@ -563,29 +563,16 @@ class admin extends Module {
             $this->pIrc->notice($nick, "That bot already exists!");
             return $this->ERROR;
         }
-        $chans = "1:#bots 1:#botstaff";
-        $active = 1;
+        
         $ip = $argv[1];
-        $server = 'ipv6.gamesurge.net';
-        $port = 6667;
-        $user = 'bots';
-        $ipv = 6;
-        $xmlip = 'localhost';
         $xmlport = $row['MAX(xmlport)'] + 1;
-        $throttle_sec = 11;
-        $authserv = 'AS AUTH BotOps 0g9Bsj76';
-        $userline = 'localhost localhost :IRC Bot Services #Bots';
-        $throttle_bytes = 512;
+        // A bit ugly but it works for now
         $csets = 'a:1:{s:7:"channel";a:3:{s:8:"registar";s:11:"linuxsniper";s:6:"regged";i:1337163258;s:7:"suspend";N;}}';
         try {
-            $stmta = $this->pMysql->prepare("INSERT INTO `bots` ".
-                "(name, chans, active, ip, server, port, user, ipv, xmlip, " .
-                "xmlport, throttle_sec, authserv, userline, throttle_bytes) ".
-                "VALUES(:name,:chans,:active,:ip,:server,:port,:user,:ipv,:xmlip,:xmlport,:throttle_sec,:authserv,:userline,:throttle_bytes)");
+            $stmta = $this->pMysql->prepare("INSERT INTO `bots` " .
+                "(name, ip, xmlport,) VALUES(:name,:ip,:xmlport)");
             $stmta->execute(Array(
-                ':name'=>$name,':chans'=>$chans,':active'=>$active,':ip'=>$ip,':server'=>$server,
-                ':port'=>$port,':user'=>$user,':ipv'=>$ipv,':xmlip'=>$xmlip,':xmlport'=>$xmlport,
-                ':throttle_sec'=>$throttle_sec,':authserv'=>$authserv,':userline'=>$userline,':throttle_bytes'=>$throttle_bytes));
+                ':name'=>$name,':ip'=>$ip,':xmlport'=>$xmlport));
             $stmta->closeCursor();
             $bname = $this->mq($name);
             $ourname = $this->mq($this->pIrc->nick);
