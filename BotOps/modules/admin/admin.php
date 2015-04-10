@@ -566,13 +566,14 @@ class admin extends Module {
         
         $ip = $argv[1];
         $xmlport = $row['MAX(xmlport)'] + 1;
+        $chans = "1:#bots 1:#botstaff";
         // A bit ugly but it works for now
         $csets = 'a:1:{s:7:"channel";a:3:{s:8:"registar";s:11:"linuxsniper";s:6:"regged";i:1337163258;s:7:"suspend";N;}}';
         try {
             $stmta = $this->pMysql->prepare("INSERT INTO `bots` " .
-                "(name, ip, xmlport,) VALUES(:name,:ip,:xmlport)");
+                "(name, ip, xmlport, chans) VALUES(:name,:ip,:xmlport,:chans)");
             $stmta->execute(Array(
-                ':name'=>$name,':ip'=>$ip,':xmlport'=>$xmlport));
+                ':name'=>$name,':ip'=>$ip,':xmlport'=>$xmlport,':chans'=>$chans));
             $stmta->closeCursor();
             $bname = $this->mq($name);
             $ourname = $this->mq($this->pIrc->nick);
