@@ -111,22 +111,26 @@ class user extends Module
 
     function cmd_resetpass($nick, $target, $args)
     {
-        $arg  = explode(' ', $args);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
+        list($argc, $argv) = niceArgs($args);
+        $hand = $this->byNick($nick);
+
         if ($hand != '') {
             $this->pIrc->notice($nick, "You are already authed to account $hand");
             return $this->ERROR;
         }
-        if (empty($arg[0])) {
+
+        if ($argc < 1) {
             return $this->BADARGS;
         }
+
+        $hand = $argv[0];
+
         try {
             $stmt = $this->pMysql->prepare("SELECT `cookie`,`name`,`id`,`email` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand' => $arg[0]));
+            $stmt->execute(Array(':hand' => $hand));
             if ($stmt->rowCount() == 0) {
                 $this->pIrc->notice($nick,
-                                    "Account\2 $arg[0] \2has not been registered.");
+                                    "Account\2 $hand \2has not been registered.");
                 return $this->ERROR;
             }
             $row = $stmt->fetch();
@@ -136,17 +140,19 @@ class user extends Module
             return $this->ERROR;
         }
 
-        ($row["cookie"]) ? $row["cookie"] = explode('.', $row["cookie"]) : '';
         if (empty($row["email"])) {
             $this->pIrc->notice($nick,
-                                "There is no email set for account " . chr(2) . $arg[0] . chr(2));
+                                "There is no email set for account\2 $hand \2");
             return $this->ERROR;
         }
+
+        ($row["cookie"]) ? $row["cookie"] = explode('.', $row["cookie"]) : '';
         if ($row["cookie"][0] && (time() - $row["cookie"][0] < 86400)) {
             $this->pIrc->notice($nick,
                                 "A cookie has recently been issue for this account. Please wait for it to expire.");
             return $this->ERROR;
         }
+
         $row["cookie"] = chr(rand(97, 122)) . chr(rand(65, 90)) .
             chr(rand(97, 122)) . chr(rand(65, 90)) . rand(65, 90) .
             chr(rand(97, 122)) . chr(rand(97, 122));
@@ -163,7 +169,7 @@ class user extends Module
             "Login cookie",
             "This email is in reply to a request to login to your account. Please note that your password has not been changed." .
             "\n\nThe following command will allow you to alternatively login to your account." .
-            "\n /msg BotOps cookie " . trim($arg[0]) . chr(32) . trim($row[cookie]) .
+            "\n /msg BotOps cookie $hand " . trim($row['cookie']) .
             "\n\nYour cookie will expire in 24 hrs and may only be used once." .
             "\n*Note: If you did not request this service, you do not have to do anything." .
             "\n\n--" .
