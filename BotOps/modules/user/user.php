@@ -33,12 +33,12 @@ class user extends Module
 
     function cmd_logout($nick, $target, $args)
     {
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
+        $hand = $this->byNick($nick);
         if ($hand == '') {
             $this->pIrc->notice($nick, "You are not authed.");
             return $this->ERROR;
         }
+        
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `host` = NULL WHERE `name` = :hand");
             $stmt->execute(Array(':hand' => $hand));
