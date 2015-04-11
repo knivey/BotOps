@@ -1188,64 +1188,56 @@ class user extends Module
 
     function cmd_adduser($nick, $target, $arg2)
     {
-        //Setup our normal variables..
         $arg    = explode(' ', $arg2);
-        $host   = $this->pIrc->n2h($nick);
-        $hand   = $this->byHost($host);
+        $hand   = $this->byNick($nick);
         $chan   = strtolower($target); //Later on we might change this command for use via PM
         $access = $this->access($hand, $chan);
 
-        if (!is_array($arg)) {
-            $arg = explode(' ', $arg);
-        }
-        if ($hand == '') {
-            $this->pIrc->notice($nick,
-                                'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password');
-            return $this->ERROR;
-        }
         if (empty($arg[0]) || empty($arg[1])) {
             return $this->BADARGS;
         }
-        if ($arg[1] >= $access && $this->hasflags($hand, 'g') == 0) {
-            $this->pIrc->notice($nick,
-                                'You cannot give someone access greater then or equal to your own.');
-            return $this->ERROR;
-        }
-        $h      = "cmd_adduser_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(' ',
-                                                                                                                                               $arg) . "\",\"" . $arg2 . "\")";
-        $arg[0] = $this->na_arg($arg[0], $nick, $h);
-        if ($arg[1] >= $access && $this->hasflags($hand, 'g') == 1) {
-            //logs($this->pIrc->nick, "ADDUSER", $host, implode(' ',$arg), '1', $hand, $chan);
-            $ret = $this->OVERRIDE | $this->OK;
-        } else {
-            $ret = $this->OK;
-        }
-        if (empty($arg[0])) {
-            return $this->ERROR;
-        }
-        if ($this->access($arg[0], $chan) > 0) {
-            $this->pIrc->notice($nick, "$arg[0] already has access to $chan.");
-            return $this->gM('CmdReg')->rV['ERROR'];
-        }
-        //TODO account|nick
-        $newaccess = $arg[1];
-        if (!is_numeric($newaccess)) {
+
+        if (!is_numeric($arg[1])) {
             $this->pIrc->notice($nick, "$arg[1] is an invalid access level.");
             return $this->ERROR;
         }
-        $newaccess               = round($newaccess, 2);
-        $hchans                  = $this->chans($arg[0]);
+        $newaccess = round($arg[1], 2);
+
+        $ret = $this->OK;
+        if ($newaccess >= $access) {
+            if ($this->hasflags($hand, 'g') == 0) {
+                $this->pIrc->notice($nick,
+                                    'You cannot give someone access greater then or equal to your own.');
+                return $this->ERROR;
+            } else {
+                $ret = $this->OVERRIDE | $this->OK;
+            }
+        }
+
+        $who = $this->na_arg($arg[0], $nick, NULL);
+        if (empty($who)) {
+            return $this->ERROR;
+        }
+
+        if ($this->access($who, $chan) > 0) {
+            $this->pIrc->notice($nick, "$who already has access to $chan.");
+            return $this->ERROR;
+        }
+
+        $hchans                  = $this->chans($who);
         $hchans[$chan]['access'] = $newaccess;
         $hchans                  = serialize($hchans);
+
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :chans WHERE `name` = :hand");
-            $stmt->execute(Array(':chans' => $hchans, ':hand' => $arg[0]));
+            $stmt->execute(Array(':chans' => $hchans, ':hand' => $who));
             $stmt->closeCursor();
         } catch (PDOException $e) {
             $this->reportPDO($e, $nick);
             return $this->ERROR;
         }
-        $this->pIrc->notice($nick, "$arg[0] now has $newaccess access to $chan.");
+
+        $this->pIrc->notice($nick, "$who now has $newaccess access to $chan.");
         return $ret;
     }
 
