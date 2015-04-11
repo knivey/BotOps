@@ -278,7 +278,7 @@ class user extends Module
                                 "Note without an email set you will " .
                 "not be able to recover lost passwords, if you decide to set " .
                 "an email later please /msg " . $this->pIrc->currentNick() .
-                " SET EMAIL <new address>");
+                " EMAIL <new address>");
         }
 
         if ($this->hand_exists($hand)) {
