@@ -195,25 +195,34 @@ class user extends Module
         if ($argc < 1) {
             return $this->BADARGS;
         }
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
+
+        $email = $argv[0];
+        $hand  = $this->byNick($nick);
         if ($hand == '') {
             $this->pIrc->notice($nick,
                                 "You are not authed with BotOps, auth first.");
             return $this->ERROR;
         }
-        if (!isemail($argv[0])) {
-            $this->pIrc->notice($nick, "$argv[0] is not a valid email address");
+
+        if (!isemail($email)) {
+            $this->pIrc->notice($nick, "$email is not a valid email address");
             return $this->ERROR;
         }
-        //$curEmail = $this->getEmail($hand);
-        //if($curEmail == '') {
-        $this->setEmail($hand, $argv[0]);
+
+        $rv = $this->email_inuse($email);
+        if ($rv == -1) {
+            $this->pIrc->notice($nick,
+                                "An error occurred while executing your command, staff have been notified.");
+            return $this->ERROR;
+        }
+        if ($rv == 1) {
+            $this->pIrc->notice($nick,
+                                "$email has already been used to register an account. Please use a different email address.");
+        }
+
+        $this->setEmail($hand, $email);
         $this->pIrc->notice($nick, "Your email address has been set.");
         return $this->OK;
-        //}
-        //User already has an email address set
-        //In the future we should send a cookie to the old+new addresses
     }
 
     function cmd_pass($nick, $target, $msg)
@@ -246,6 +255,22 @@ class user extends Module
         }
         $this->pIrc->notice($nick,
                             "Your password has been updated, don't forget it!");
+    }
+
+    function email_inuse($email)
+    {
+        try {
+            $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `email`=:email");
+            $stmt->execute(Array(':email' => $email));
+            $stmt->closeCursor();
+            if ($stmt->rowCount() > 0) {
+                return 1;
+            }
+        } catch (PDOException $e) {
+            $this->reportPDO($e);
+            return -1;
+        }
+        return 0;
     }
 
     function cmd_register($nick, $target, $args)
