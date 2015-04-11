@@ -252,66 +252,67 @@ class user extends Module
 
     function cmd_register($nick, $target, $args)
     {
-        $arg  = explode(' ', $args);
+        list($argc, $argv) = niceArgs($args);
         $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
+        $hand = $this->byHost($host);
 
         if ($hand != '') {
             $this->pIrc->notice($nick, "You are already authed to account $hand");
             return $this->ERROR;
         }
 
-        if (empty($arg[0]) || empty($arg[1])) {
+        if ($argc < 2) {
             return $this->BADARGS;
         }
 
-        if ($this->hand_exists($arg[0])) {
+        $hand  = $argv[0];
+        $pass  = $argv[1];
+        $email = '';
+
+        if ($argc > 2) {
+            $email = $argv[2];
+            if (!isemail($email)) {
+                $this->pIrc->notice($nick, "$email is not a valid email address");
+                return $this->ERROR;
+            }
+        } else {
+            $this->pIrc->notice($nick,
+                                "Note without an email set you will " .
+                "not be able to recover lost passwords, if you decide to set " .
+                "an email later please /msg " . $this->pIrc->currentNick() .
+                " SET EMAIL <new address>");
+        }
+
+        if ($this->hand_exists($hand)) {
             $this->pIrc->notice($nick, "That username already exists.");
             return $this->ERROR;
         }
 
-        if (!ereg("^[a-zA-Z0-9_\-\+`<>\|]+$", $arg[0])) {
+        if (!ereg("^[a-zA-Z0-9_\-\+`<>\|]+$", $hand)) {
             $this->pIrc->notice($nick,
                                 "Username may only contain alpha-numeric characters and the following _ - + < > ` |");
             return $this->ERROR;
         }
 
         $params = Array(
-            ':name'   => $arg[0],
-            ':pass'   => md5($arg[1]),
+            ':name'   => $hand,
+            ':pass'   => md5($pass),
             ':date'   => time(),
             ':laston' => time(),
             ':host'   => $host,
-            ':email'  => $arg[2],
+            ':email'  => $email,
             ':chans'  => 'a:0:{}',
         );
         $query  = "INSERT INTO `users` (`name`,`pass`,`datemade`,`laston`,`host`,`email`,`chans`)" .
             " VALUES(:name,:pass,:date,:laston,:host,:email,:chans)";
 
-        if (empty($arg[2])) {
-            $this->pIrc->notice($nick,
-                                "Note without an email set you will " .
-                "not be able to recover lost passwords if you decide to set " .
-                "an email later please /msg " . $this->pIrc->currentNick() .
-                " SET EMAIL <new address>");
-            unset($params[':email']);
-            $query = "INSERT INTO `users` (`name`,`pass`,`datemade`,`laston`,`host`,`chans`)" .
-                " VALUES(:name,:pass,:date,:laston,:host,:chans)";
-        } else {
-            if (!isemail($arg[2])) {
-                $this->pIrc->notice($nick,
-                                    "$arg[2] is not a valid email address");
-                return $this->ERROR;
-            }
-        }
-
         try {
             $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `email`=:email");
-            $stmt->execute(Array(':email' => $arg[2]));
+            $stmt->execute(Array(':email' => $email));
             $stmt->closeCursor();
             if ($stmt->rowCount() > 0) {
                 $this->pIrc->notice($nick,
-                                    "$arg[2] has already been used to register an account. Please use a different email address.");
+                                    "$email has already been used to register an account. Please use a different email address.");
                 return $this->ERROR;
             }
 
@@ -323,9 +324,8 @@ class user extends Module
             return $this->ERROR;
         }
 
-        $this->pIrc->notice($nick, "You are now authed to account $arg[0]");
-        $this->pIrc->msg('#botstaff',
-                         "Account $arg[0] has been regged by $nick.");
+        $this->pIrc->notice($nick, "You are now authed to account $hand");
+        $this->pIrc->msg('#botstaff', "Account $hand has been regged by $nick.");
         return $this->OK;
     }
 
@@ -362,10 +362,10 @@ class user extends Module
         if ($argc < 2) {
             return $this->BADARGS;
         }
-        
+
         $hand = $argv[0];
         $pass = $argv[1];
-        
+
         try {
             $stmt = $this->pMysql->prepare("SELECT `pass`,`flags` FROM `users` WHERE `name` = :hand");
             $stmt->execute(Array(':hand' => $hand));
@@ -376,13 +376,12 @@ class user extends Module
             }
             $row = $stmt->fetch();
             $stmt->closeCursor();
-            
+
             if (md5($pass) == $row['pass']) {
                 $stmt = $this->pMysql->prepare("UPDATE `users` SET `host`=:host,`cookie`=NULL,`lastseen`='now' WHERE `name` = :hand");
                 $stmt->execute(Array(':hand' => $hand, ':host' => $host));
                 $stmt->closeCursor();
-                $this->pIrc->notice($nick,
-                                    "You are now authed to account $hand");
+                $this->pIrc->notice($nick, "You are now authed to account $hand");
                 if ($this->hasflags($hand, 'T|O', $row['flags'])) {
                     $this->pIrc->msg('#botstaff',
                                      "Notice $nick has authed to " . $this->staff_position($hand) . " account $hand");
