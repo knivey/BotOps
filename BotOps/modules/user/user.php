@@ -53,22 +53,28 @@ class user extends Module
 
     function cmd_cookie($nick, $target, $args)
     {
-        $arg  = explode(' ', $args);
+        list($argc, $argv) = niceArgs($args);
         $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
+        $hand = $this->byHost($host);
+
         if ($hand != '') {
             $this->pIrc->notice($nick, "You are already authed to account $hand");
             return $this->ERROR;
         }
-        if (empty($arg[1])) {
+
+        if ($argc < 2) {
             return $this->BADARGS;
         }
+
+        $hand   = $argv[0];
+        $cookie = $argv[1];
+
         try {
             $stmt = $this->pMysql->prepare("SELECT `cookie`,`name` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand' => $arg[0]));
+            $stmt->execute(Array(':hand' => $hand));
             if ($stmt->rowCount() == 0) {
                 $this->pIrc->notice($nick,
-                                    "Account\2 $arg[0] \2has not been registered.");
+                                    "Account\2 $hand \2has not been registered.");
                 return $this->ERROR;
             }
             $row = $stmt->fetch();
@@ -89,17 +95,17 @@ class user extends Module
                                 "Cookie has expired. Please use the resetpass command to issue another one.");
             return $this->ERROR;
         }
-        if ($arg[1] == $row["cookie"][1]) {
+        if ($cookie == $row["cookie"][1]) {
             try {
                 $stmt = $this->pMysql->prepare("UPDATE `users` SET `host` = :host, `cookie` = NULL WHERE `name` = :hand");
-                $stmt->execute(Array(':hand' => $arg[0], ':host' => $host));
+                $stmt->execute(Array(':hand' => $hand, ':host' => $host));
                 $stmt->closeCursor();
             } catch (PDOException $e) {
                 $this->reportPDO($e, $nick);
                 return $this->ERROR;
             }
             $this->pIrc->notice($nick,
-                                "You are now authed to account $row[name]");
+                                "You are now authed to account\2 $row[name]");
             $this->pIrc->notice($nick,
                                 "Temporary cookie deleted. Remember to change your password!");
             return $this->OK;
@@ -142,7 +148,7 @@ class user extends Module
 
         if (empty($row["email"])) {
             $this->pIrc->notice($nick,
-                                "There is no email set for account\2 $hand \2");
+                                "There is no email set for account\2 $hand");
             return $this->ERROR;
         }
 
