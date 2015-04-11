@@ -222,22 +222,20 @@ class user extends Module
         if ($argc < 1) {
             return $this->BADARGS;
         }
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
+
+        $hand = $this->byNick($nick);
         if ($hand == '') {
             $this->pIrc->notice($nick,
                                 "You are not authed with BotOps, auth first.");
             return $this->ERROR;
         }
-        /*
-         * I think i want to add a few resitrictions to passwords
-         * bassically make sure its longer then 5 characters for now i guess
-         */
+
         if (strlen($argv[0]) < 5) {
             $this->pIrc->notice($nick,
                                 "For security your password must be longer then 5 characters, password not updated.");
             return $this->ERROR;
         }
+
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `pass` = :pass WHERE `name` = :hand");
             $stmt->execute(Array(':hand' => $hand, ':pass' => md5($argv[0])));
