@@ -1241,65 +1241,53 @@ class user extends Module
         return $ret;
     }
 
-    //CMDDEFAULTS 1 1
     function cmd_deluser($nick, $target, $arg2)
     {
-        //Setup our normal variables..
         $arg    = explode(' ', $arg2);
-        $host   = $this->pIrc->n2h($nick);
-        $hand   = $this->byHost($host);
+        $hand   = $this->byNick($nick);
         $chan   = strtolower($target); //Later on we might change this command for use via PM
         $access = $this->access($hand, $chan);
 
-        if (!is_array($arg)) {
-            $arg = explode(' ', $arg);
-        }
-        if ($hand == '') {
-            $this->pIrc->notice($nick,
-                                'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password');
-            return $this->ERROR;
-        }
         if (empty($arg[0])) {
-            $this->pIrc->notice($nick, 'Syntax: deluser <*account|nick>');
             return $this->BADARGS;
         }
-        $h      = "cmd_deluser_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(' ',
-                                                                                                                                               $arg) . "\",\"" . $arg2 . "\")";
-        $arg[0] = $this->na_arg($arg[0], $nick, $h);
-        //$arg[0] = na_arg($arg[0], $nick);
-        if (empty($arg[0])) {
+
+        $who = $this->na_arg($arg[0], $nick);
+        if (empty($who)) {
             return $this->ERROR;
         }
-        if ($this->access($arg[0], $chan) >= $access && $this->hasflags($hand,
-                                                                        'g') == 0) {
-            $this->pIrc->notice($nick,
-                                'You cannot remove someone with access greater then or equal to your own.');
+
+        $ret = $this->OK;
+        if ($this->access($who, $chan) >= $access) {
+            if ($this->hasflags($hand, 'g') == 0) {
+                $this->pIrc->notice($nick,
+                                    'You cannot remove someone with access greater then or equal to your own.');
+                return $this->ERROR;
+            } else {
+                $ret = $this->OK | $this->OVERRIDE;
+            }
+        }
+
+        if ($this->access($who, $chan) == 0) {
+            $this->pIrc->notice($nick, "$who has no access to $chan.");
             return $this->ERROR;
         }
-        if ($this->access($arg[0], $chan) >= $access && $this->hasflags($hand,
-                                                                        'g') == 1) {
-            //logs($this->pIrc->nick, "DELUSER", $host, implode(' ', $arg), '1', $hand, $chan);
-            $ret = $this->OK | $this->OVERRIDE;
-        } else {
-            $ret = $this->OK;
-        }
-        if ($this->access($arg[0], $chan) == 0) {
-            $this->pIrc->notice($nick, "$arg[0] has no access to $chan.");
-            return $this->ERROR;
-        }
-        $hchans = $this->chans($arg[0]);
+        
+        $hchans = $this->chans($who);
         unset($hchans[get_akey_nc($chan, $hchans)]);
         $hchans = serialize($hchans);
+        
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :chans WHERE `name` = :hand");
-            $stmt->execute(Array(':chans' => $hchans, ':hand' => $arg[0]));
+            $stmt->execute(Array(':chans' => $hchans, ':hand' => $who));
             $stmt->closeCursor();
         } catch (PDOException $e) {
             $this->reportPDO($e, $nick);
             return $this->ERROR;
         }
+        
         $this->pIrc->notice($nick,
-                            "$arg[0]'s access has been removed from $chan.");
+                            "$who's access has been removed from $chan.");
         return $ret;
     }
 
