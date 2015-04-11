@@ -895,76 +895,50 @@ class user extends Module
 
     function cmd_access($nick, $target, $arg2)
     {
-        $arg    = explode(' ', $arg2);
-        $host   = $this->pIrc->n2h($nick);
-        $hand   = $this->byHost($host);
-        $chan   = strtolower($target);
-        $access = $this->access($hand, $chan);
+        list($argc, $argv) = niceArgs($arg2);
+        $hand = $this->byNick($nick);
+        $chan = strtolower($target);
 
-        if (empty($arg[0])) {
+        if ($argc < 1) {
             if ($hand == '') {
                 $this->pIrc->notice($nick, "You are not authed with BotOps");
                 $this->pIrc->notice($nick,
                                     "Syntax: /msg " . $this->pIrc->currentNick() . " auth <username> <password>");
                 return $this->OK;
             }
-
-            if ($this->hasflags($hand, 'N|O|T|U')) {
-                $epithet = $this->getEpithet($hand);
-                $level   = $this->staff_position($hand);
-                $this->pIrc->notice($nick, "$nick is $epithet ($level)");
-            }
-            if ($access == 0) {
-                if ($this->hasflags($hand, 'g')) {
-                    $this->pIrc->notice($nick,
-                                        "$nick ($hand) lacks access to $chan but has \2Override\2 enabled.");
-                } else {
-                    $this->pIrc->notice($nick,
-                                        "$nick ($hand) lacks access to $chan");
-                }
-            } else {
-                if ($this->hasflags($hand, 'g')) {
-                    $this->pIrc->notice($nick,
-                                        "$nick ($hand) has access level\2 $access \2in $chan and has \2Override\2 enabled.");
-                } else {
-                    $this->pIrc->notice($nick,
-                                        "$nick ($hand) has access level\2 $access \2in $chan.");
-                }
-            }
+            $who = $nick;
         } else {
-            $h = "cmd_access_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(chr(32),
-                                                                                                                                                 $arg) . "\",\"" . $arg2 . "\")";
-            $h = $this->na_arg($arg[0], $nick, $h);
-            //  $h = na_arg($arg[0], $nick);
-            if ($h == '') {
+            $who  = $argv[0];
+            $hand = $this->na_arg($who, $nick);
+            if ($hand == '') {
                 return $this->OK;
             }
-            $access  = $this->access($h, $chan);
-            $epithet = $this->getEpithet($h);
-            if ($this->hasflags($h, 'N|O|T|U')) {
-                $epithet = $row['epithet'];
-                $level   = $this->staff_position($h);
-                $this->pIrc->notice($nick, "$arg[0] is $epithet ($level)");
-            }
-            if ($access == 0) {
-                if ($this->hasflags($h, 'g')) {
-                    $this->pIrc->notice($nick,
-                                        "$arg[0] ($h) lacks access to $chan but has \2Override\2 enabled.");
-                } else {
-                    $this->pIrc->notice($nick,
-                                        "$arg[0] ($h) lacks access to $chan");
-                }
-            } else {
-                if ($this->hasflags($h, 'g')) {
-                    $this->pIrc->notice($nick,
-                                        "$arg[0] ($h) has access level\2 $access \2in $chan and has \2Override\2 enabled.");
-                } else {
-                    $this->pIrc->notice($nick,
-                                        "$arg[0] ($h) has access level\2 $access \2in $chan.");
-                }
-            }
-            return $this->OK;
         }
+        $access = $this->access($hand, $chan);
+
+        if ($this->hasflags($hand, 'N|O|T|U')) {
+            $epithet = $this->getEpithet($hand);
+            $level   = $this->staff_position($hand);
+            $this->pIrc->notice($nick, "$who is $epithet ($level)");
+        }
+        if ($access == 0) {
+            if ($this->hasflags($hand, 'g')) {
+                $this->pIrc->notice($nick,
+                                    "$who ($hand) lacks access to $chan but has \2Override\2 enabled.");
+            } else {
+                $this->pIrc->notice($nick, "$who ($hand) lacks access to $chan");
+            }
+        } else {
+            if ($this->hasflags($hand, 'g')) {
+                $this->pIrc->notice($nick,
+                                    "$who ($hand) has access level\2 $access \2in $chan and has \2Override\2 enabled.");
+            } else {
+                $this->pIrc->notice($nick,
+                                    "$who ($hand) has access level\2 $access \2in $chan.");
+            }
+        }
+
+        return $this->OK;
     }
 
     function setOverride($hand, $val)
