@@ -1088,10 +1088,6 @@ class user extends Module
     {
         list($argc, $argv) = niceArgs($msg);
         $hand = $this->byNick($nick);
-        if ($hand == '') {
-            $this->pIrc->notice($nick, "You aren't authed");
-            return $this->ERROR;
-        }
         if ($argc < 1) {
             if ($this->hasOverride($hand)) {
                 $this->pIrc->notice($nick, $this->setOverride($hand, false));
@@ -1100,15 +1096,13 @@ class user extends Module
             }
             return $this->OK;
         }
-        if ($argv[0] == 'on') {
+        if (strtolower($argv[0]) == 'on') {
             $this->pIrc->notice($nick, $this->setOverride($hand, true));
-            return $this->OK;
         }
-        if ($argv[0] == 'off') {
-            $this->pIrc->notice($nick, $this->setOverride($hand, true));
-            return $this->OK;
+        if (strtolower($argv[0]) == 'off') {
+            $this->pIrc->notice($nick, $this->setOverride($hand, false));
         }
-        return $this->BADARGS;
+        return $this->OK;
     }
 
     function cmd_clvl($nick, $target, $arg2)
