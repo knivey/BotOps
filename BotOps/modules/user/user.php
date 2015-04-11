@@ -605,7 +605,6 @@ class user extends Module
      */
     function hasflags($hand, $flags, $hflags = FALSE)
     {
-        //if($hand == 'BotNetwork') return TRUE; //lol
         if ($flags == '') {
             return true;
         }
@@ -899,7 +898,7 @@ class user extends Module
         $arg    = explode(' ', $arg2);
         $host   = $this->pIrc->n2h($nick);
         $hand   = $this->byHost($host);
-        $chan   = strtolower($target); //Later on we might change this command for use via PM
+        $chan   = strtolower($target);
         $access = $this->access($hand, $chan);
 
         if (empty($arg[0])) {
@@ -1118,7 +1117,7 @@ class user extends Module
         $arg    = explode(' ', $arg2);
         $host   = $this->pIrc->n2h($nick);
         $hand   = $this->byHost($host);
-        $chan   = strtolower($target); //Later on we might change this command for use via PM
+        $chan   = strtolower($target);
         $access = $this->access($hand, $chan);
 
         if (!is_array($arg)) {
@@ -1190,7 +1189,7 @@ class user extends Module
     {
         $arg    = explode(' ', $arg2);
         $hand   = $this->byNick($nick);
-        $chan   = strtolower($target); //Later on we might change this command for use via PM
+        $chan   = strtolower($target);
         $access = $this->access($hand, $chan);
 
         if (empty($arg[0]) || empty($arg[1])) {
@@ -1245,7 +1244,7 @@ class user extends Module
     {
         $arg    = explode(' ', $arg2);
         $hand   = $this->byNick($nick);
-        $chan   = strtolower($target); //Later on we might change this command for use via PM
+        $chan   = strtolower($target);
         $access = $this->access($hand, $chan);
 
         if (empty($arg[0])) {
@@ -1293,7 +1292,7 @@ class user extends Module
 
     function cmd_users($nick, $target, $arg2)
     {
-        $chan = strtolower($target); //Later on we might change this command for use via PM
+        $chan = strtolower($target);
 
         /*
          * Fix this later when we find what to do with chan_search
