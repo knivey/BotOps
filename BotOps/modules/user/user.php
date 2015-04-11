@@ -28,78 +28,80 @@
 
 require_once('modules/Module.inc');
 
-class user extends Module {
+class user extends Module
+{
 
-    function cmd_logout($nick, $target, $args) {
-        $arg = explode(' ', $args);
+    function cmd_logout($nick, $target, $args)
+    {
         $host = $this->pIrc->n2h($nick);
         $hand = $this->gM('user')->byHost($host);
-        $hflags = $this->gM('user')->flags($hand);
         if ($hand == '') {
             $this->pIrc->notice($nick, "You are not authed.");
-            return 8;
+            return $this->ERROR;
         }
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `host` = NULL WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
+            $stmt->execute(Array(':hand' => $hand));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e, $nick);
+            return $this->ERROR;
         }
         $this->pIrc->notice($nick, "User $hand has been logged out.");
-        return 1;
+        return $this->OK;
     }
 
-    function cmd_cookie($nick, $target, $args) {
-        $arg = explode(' ', $args);
+    function cmd_cookie($nick, $target, $args)
+    {
+        $arg  = explode(' ', $args);
         $host = $this->pIrc->n2h($nick);
         $hand = $this->gM('user')->byHost($host);
-        $hflags = $this->gM('user')->flags($hand);
         if ($hand != '') {
             $this->pIrc->notice($nick, "You are already authed to account $hand");
-            return 8;
+            return $this->ERROR;
         }
         if (empty($arg[1])) {
-            return 2;
+            return $this->BADARGS;
         }
         try {
             $stmt = $this->pMysql->prepare("SELECT `cookie`,`name` FROM `users` WHERE `name` = :hand");
             $stmt->execute(Array(':hand' => $arg[0]));
             if ($stmt->rowCount() == 0) {
-                $this->pIrc->notice($nick, "Account\2 $arg[0] \2has not been registered.");
+                $this->pIrc->notice($nick,
+                                    "Account\2 $arg[0] \2has not been registered.");
                 return $this->ERROR;
             }
             $row = $stmt->fetch();
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e, $nick);
+            return $this->ERROR;
         }
-        
+
         ($row["cookie"]) ? $row["cookie"] = explode('.', $row["cookie"]) : '';
         if (empty($row["cookie"])) {
-            $this->pIrc->notice($nick, "There is no cookie issued for this account.");
+            $this->pIrc->notice($nick,
+                                "There is no cookie issued for this account.");
             return $this->ERROR;
         }
         if ($row["cookie"][0] && (time() - $row["cookie"][0] > 86400)) {
-            $this->pIrc->notice($nick, "Cookie has expired. Please use the resetpass command to issue another one.");
+            $this->pIrc->notice($nick,
+                                "Cookie has expired. Please use the resetpass command to issue another one.");
             return $this->ERROR;
         }
         if ($arg[1] == $row["cookie"][1]) {
             try {
                 $stmt = $this->pMysql->prepare("UPDATE `users` SET `host` = :host, `cookie` = NULL WHERE `name` = :hand");
-                $stmt->execute(Array(':hand' => $arg[0],':host'=>$host));
+                $stmt->execute(Array(':hand' => $arg[0], ':host' => $host));
                 $stmt->closeCursor();
             } catch (PDOException $e) {
-                $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-                echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-                $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+                $this->reportPDO($e, $nick);
+                return $this->ERROR;
             }
-            $this->pIrc->notice($nick, "You are now authed to account $row[name]");
-            $this->pIrc->notice($nick, "Temporary cookie deleted. Remember to change your password!");
+            $this->pIrc->notice($nick,
+                                "You are now authed to account $row[name]");
+            $this->pIrc->notice($nick,
+                                "Temporary cookie deleted. Remember to change your password!");
             return $this->OK;
         } else {
             $this->pIrc->notice($nick, "Cookie information is incorrect.");
@@ -107,86 +109,88 @@ class user extends Module {
         }
     }
 
-    function cmd_resetpass($nick, $target, $args) {
-        $arg = explode(' ', $args);
+    function cmd_resetpass($nick, $target, $args)
+    {
+        $arg  = explode(' ', $args);
         $host = $this->pIrc->n2h($nick);
         $hand = $this->gM('user')->byHost($host);
-        $hflags = $this->gM('user')->flags($hand);
         if ($hand != '') {
             $this->pIrc->notice($nick, "You are already authed to account $hand");
-            return 8;
+            return $this->ERROR;
         }
         if (empty($arg[0])) {
-            return 2;
+            return $this->BADARGS;
         }
         try {
             $stmt = $this->pMysql->prepare("SELECT `cookie`,`name`,`id`,`email` FROM `users` WHERE `name` = :hand");
             $stmt->execute(Array(':hand' => $arg[0]));
             if ($stmt->rowCount() == 0) {
-                $this->pIrc->notice($nick, "Account\2 $arg[0] \2has not been registered.");
+                $this->pIrc->notice($nick,
+                                    "Account\2 $arg[0] \2has not been registered.");
                 return $this->ERROR;
             }
             $row = $stmt->fetch();
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e, $nick);
             return $this->ERROR;
         }
-        
+
         ($row["cookie"]) ? $row["cookie"] = explode('.', $row["cookie"]) : '';
         if (empty($row["email"])) {
-            $this->pIrc->notice($nick, "There is no email set for account " . chr(2) . $arg[0] . chr(2));
+            $this->pIrc->notice($nick,
+                                "There is no email set for account " . chr(2) . $arg[0] . chr(2));
             return $this->ERROR;
         }
         if ($row["cookie"][0] && (time() - $row["cookie"][0] < 86400)) {
-            $this->pIrc->notice($nick, "A cookie has recently been issue for this account. Please wait for it to expire.");
+            $this->pIrc->notice($nick,
+                                "A cookie has recently been issue for this account. Please wait for it to expire.");
             return $this->ERROR;
         }
-        $row["cookie"] = chr(rand(97, 122)) . chr(rand(65, 90)) . chr(rand(97, 122)) . chr(rand(65, 90)) . rand(65, 90) . chr(rand(97, 122)) . chr(rand(97, 122));
+        $row["cookie"] = chr(rand(97, 122)) . chr(rand(65, 90)) .
+            chr(rand(97, 122)) . chr(rand(65, 90)) . rand(65, 90) .
+            chr(rand(97, 122)) . chr(rand(97, 122));
         try {
-            $stmt = $this->pMysql->prepare("UPDATE `users` SET `cookie` = :cookie WHERE `id` = :id");            
-            $stmt->execute(Array(':id' => $row['id'],':cookie'=>time() . "." . $row["cookie"]));
+            $stmt = $this->pMysql->prepare("UPDATE `users` SET `cookie` = :cookie WHERE `id` = :id");
+            $stmt->execute(Array(':id' => $row['id'], ':cookie' => time() . "." . $row["cookie"]));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e, $nick);
             return $this->ERROR;
         }
         $postmail = array(
             $row["email"],
             "Login cookie",
-            "This email is in reply to a request to login to your account. Please note that your password has not been changed.
-             \n\nThe following command will allow you to alternatively login to your account.
-             \n /msg BotOps cookie " . trim($arg[0]) . chr(32) . trim($row[cookie]) . "
-             \n\nYour cookie will expire in 24 hrs and may only be used once.
-             \n*Note: If you did not request this service, you do not have to do anything.
-         	 \n\n--
-             \nPlease do not reply to this email! Nothing will happen =/",
+            "This email is in reply to a request to login to your account. Please note that your password has not been changed." .
+            "\n\nThe following command will allow you to alternatively login to your account." .
+            "\n /msg BotOps cookie " . trim($arg[0]) . chr(32) . trim($row[cookie]) .
+            "\n\nYour cookie will expire in 24 hrs and may only be used once." .
+            "\n*Note: If you did not request this service, you do not have to do anything." .
+            "\n\n--" .
+            "\nPlease do not reply to this email! Nothing will happen =/",
             "From: BotOps Login Services\n"
         );
         if (mail($postmail[0], $postmail[1], $postmail[2], $postmail[3])) {
-            $this->pIrc->notice($nick, "A temporary cookie has been generated and sent to your email address.");
-            return 1;
+            $this->pIrc->notice($nick,
+                                "A temporary cookie has been generated and sent to your email address.");
+            return $this->OK;
         } else {
             try {
                 $stmt = $this->pMysql->prepare("UPDATE `users` SET `cookie` = NULL WHERE `id` = :id");
                 $stmt->execute(Array(':id' => $row['id']));
                 $stmt->closeCursor();
             } catch (PDOException $e) {
-                $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-                echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-                $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+                $this->reportPDO($e, $nick);
                 return $this->ERROR;
             }
-            $this->pIrc->notice($nick, "Failed to email cookie. Request additional support in #bots");
-            return 8;
+            $this->pIrc->notice($nick,
+                                "Failed to email cookie. Request additional support in #bots");
+            return $this->ERROR;
         }
     }
 
-    function cmd_email($nick, $target, $msg) {
+    function cmd_email($nick, $target, $msg)
+    {
         list($argc, $argv) = niceArgs($msg);
         if ($argc < 1) {
             return $this->BADARGS;
@@ -194,7 +198,8 @@ class user extends Module {
         $host = $this->pIrc->n2h($nick);
         $hand = $this->gM('user')->byHost($host);
         if ($hand == '') {
-            $this->pIrc->notice($nick, "You are not authed with BotOps, auth first.");
+            $this->pIrc->notice($nick,
+                                "You are not authed with BotOps, auth first.");
             return $this->ERROR;
         }
         if (!isemail($argv[0])) {
@@ -211,7 +216,8 @@ class user extends Module {
         //In the future we should send a cookie to the old+new addresses
     }
 
-    function cmd_pass($nick, $target, $msg) {
+    function cmd_pass($nick, $target, $msg)
+    {
         list($argc, $argv) = niceArgs($msg);
         if ($argc < 1) {
             return $this->BADARGS;
@@ -219,7 +225,8 @@ class user extends Module {
         $host = $this->pIrc->n2h($nick);
         $hand = $this->gM('user')->byHost($host);
         if ($hand == '') {
-            $this->pIrc->notice($nick, "You are not authed with BotOps, auth first.");
+            $this->pIrc->notice($nick,
+                                "You are not authed with BotOps, auth first.");
             return $this->ERROR;
         }
         /*
@@ -227,20 +234,20 @@ class user extends Module {
          * bassically make sure its longer then 5 characters for now i guess
          */
         if (strlen($argv[0]) < 5) {
-            $this->pIrc->notice($nick, "For security your password must be longer then 5 characters, password not updated.");
+            $this->pIrc->notice($nick,
+                                "For security your password must be longer then 5 characters, password not updated.");
             return $this->ERROR;
         }
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `pass` = :pass WHERE `name` = :hand");
-            $stmt->execute(Array(':hand' => $hand,':pass'=>md5($argv[0])));
+            $stmt->execute(Array(':hand' => $hand, ':pass' => md5($argv[0])));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e, $nick);
             return $this->ERROR;
         }
-        $this->pIrc->notice($nick, "Your password has been updated, don't forget it!");
+        $this->pIrc->notice($nick,
+                            "Your password has been updated, don't forget it!");
     }
 
     function cmd_register($nick, $target, $args)
@@ -282,13 +289,14 @@ class user extends Module {
             " VALUES(:name,:pass,:date,:laston,:host,:email,:chans)";
 
         if (empty($arg[2])) {
-            $this->pIrc->notice($nick, "Note without an email set you will " .
+            $this->pIrc->notice($nick,
+                                "Note without an email set you will " .
                 "not be able to recover lost passwords if you decide to set " .
                 "an email later please /msg " . $this->pIrc->currentNick() .
                 " SET EMAIL <new address>");
             unset($params[':email']);
             $query = "INSERT INTO `users` (`name`,`pass`,`datemade`,`laston`,`host`,`chans`)" .
-                    " VALUES(:name,:pass,:date,:laston,:host,:chans)";
+                " VALUES(:name,:pass,:date,:laston,:host,:chans)";
         } else {
             if (!isemail($arg[2])) {
                 $this->pIrc->notice($nick,
@@ -311,9 +319,7 @@ class user extends Module {
             $stmt->execute($params);
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e, $nick);
             return $this->ERROR;
         }
 
@@ -323,7 +329,8 @@ class user extends Module {
         return $this->OK;
     }
 
-    function checkPass($user, $pass) {
+    function checkPass($user, $pass)
+    {
         try {
             $stmt = $this->pMysql->prepare("SELECT `pass` FROM `users` WHERE `name` = :hand");
             $stmt->execute(Array(':hand' => $user));
@@ -333,9 +340,7 @@ class user extends Module {
             $row = $stmt->fetch();
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
             return $this->ERROR;
         }
         if (md5($pass) == $row['pass']) {
@@ -345,88 +350,83 @@ class user extends Module {
         }
     }
 
-    function cmd_auth($nick, $target, $args) {
-        $arg = explode(' ', $args);
+    function cmd_auth($nick, $target, $args)
+    {
+        $arg  = explode(' ', $args);
         $host = $this->pIrc->n2h($nick);
         $hand = $this->gM('user')->byHost($host);
-        $hflags = $this->gM('user')->flags($hand);
         if ($hand != '') {
             $this->pIrc->notice($nick, "You are already authed to account $hand");
-            return 8;
+            return $this->ERROR;
         }
         if (empty($arg[0]) || empty($arg[1])) {
-            return 2;
+            return $this->BADARGS;
         }
         try {
             $stmt = $this->pMysql->prepare("SELECT `pass`,`flags` FROM `users` WHERE `name` = :hand");
             $stmt->execute(Array(':hand' => $arg[0]));
             if ($stmt->rowCount() == 0) {
-                $this->pIrc->notice($nick, "Failed to auth, either the username $arg[0] doesn't exist.");
+                $this->pIrc->notice($nick,
+                                    "Failed to auth, either the username $arg[0] doesn't exist.");
                 return $this->ERROR;
             }
             $row = $stmt->fetch();
             $stmt->closeCursor();
             if (md5($arg[1]) == $row['pass']) {
                 $stmt = $this->pMysql->prepare("UPDATE `users` SET `host`=:host,`cookie`=NULL,`lastseen`='now' WHERE `name` = :hand");
-                $stmt->execute(Array(':hand' => $arg[0],':host'=>$host));
+                $stmt->execute(Array(':hand' => $arg[0], ':host' => $host));
                 $stmt->closeCursor();
-                $this->pIrc->notice($nick, "You are now authed to account $arg[0]");
+                $this->pIrc->notice($nick,
+                                    "You are now authed to account $arg[0]");
                 if ($this->hasflags($arg[0], 'T|O', $row['flags'])) {
-                    $this->pIrc->msg('#botstaff', "Notice $nick has authed to " . $this->staff_position($arg[0]) . " account $arg[0]");
+                    $this->pIrc->msg('#botstaff',
+                                     "Notice $nick has authed to " . $this->staff_position($arg[0]) . " account $arg[0]");
                 }
-                //$bnet->notice("&logs", "$nick Successfully logged in on $arg[0]");
-                //$ppl[$nick]['user'] = host2hand($host); //using host2hand for case
-                //$nicks = hand2nick($ppl[$nick]['user']);
-                //if(count($nicks) == 1) {
-                //    foreach($bnet->luseron_slot as $slot) {
-                //        $slot['function']($bnet, $nick, $host, $ppl[$nick]['user']);
-                //    }
-                //}
             } else {
                 if ($this->hasflags($arg[0], 'T|O', $row['flags'])) {
-                    $this->pIrc->notice($nick, "Failed to auth to " . $this->staff_position($arg[0]) . " account, either the username $arg[0] password $arg[1] was incorrect, This incident will be reported.");
-                    $this->pIrc->msg('#botstaff', "Failed AUTH attempt on " . $this->staff_position($arg[0]) . " account $arg[0] by $nick");
+                    $this->pIrc->notice($nick,
+                                        "Failed to auth to " . $this->staff_position($arg[0]) . " account, either the username $arg[0] password $arg[1] was incorrect, This incident will be reported.");
+                    $this->pIrc->msg('#botstaff',
+                                     "Failed AUTH attempt on " . $this->staff_position($arg[0]) . " account $arg[0] by $nick");
                 } else {
-                    $this->pIrc->notice($nick, "Failed to auth, either the username $arg[0] doesn't exist or the password $arg[1] was incorrect");
-                    $this->pIrc->msg('#botstaff', "Failed AUTH attempt on account $arg[0] by $nick");
+                    $this->pIrc->notice($nick,
+                                        "Failed to auth, either the username $arg[0] doesn't exist or the password $arg[1] was incorrect");
+                    $this->pIrc->msg('#botstaff',
+                                     "Failed AUTH attempt on account $arg[0] by $nick");
                 }
-                //$bnet->msg('&bots', "Failed AUTH attempt on account $arg[0] by $nick");
-                //if(hasflags($arg[0], 'T|O')) {
-                //    $bnet->msg('&logs', "Failed AUTH attempt on Staff account $arg[0] by $nick");
-                //} else {
-                //    $bnet->msg('&logs', "Failed AUTH attempt on account $arg[0] by $nick, password was $arg[1]");
-                //}
             }
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e, $nick);
             return $this->ERROR;
         }
     }
 
-    function cmd_whoami($nick, $target, $args) {
-        $arg = explode(' ', $args);
+    function cmd_whoami($nick, $target, $args)
+    {
         $host = $this->pIrc->n2h($nick);
         $hand = $this->gM('user')->byHost($host);
-        $hflags = $this->gM('user')->flags($hand);
-        if ($hand == '')
+        if ($hand == '') {
             $hand = 'You are not authed.';
+        }
         $this->pIrc->notice($nick, $hand);
     }
 
-    function v_hand($args, $store) {
+    function v_hand($args, $store)
+    {
         return $this->byHost($store);
     }
 
-    function byNick($nick) {
+    function byNick($nick)
+    {
         $host = $this->pIrc->n2h($nick);
-        if ($nick == null)
+        if ($nick == null) {
             return;
+        }
         return $this->byHost($host);
     }
 
-    function byHost($host) {
+    function byHost($host)
+    {
         /* looks like we used to store users in ppl table
          * probably will again later
           foreach($ppl as $p) {
@@ -439,171 +439,159 @@ class user extends Module {
         }
         try {
             $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `host` = :host");
-            $stmt->execute(Array(':host'=>$host));
-            $row = $stmt->fetch();
+            $stmt->execute(Array(':host' => $host));
+            $row  = $stmt->fetch();
             $stmt->closeCursor();
             return $row['name'];
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
             return null;
         }
     }
 
-    function hand_host($hand) {
+    function hand_host($hand)
+    {
         if ($hand == '') {
             return;
         }
         try {
             $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            $row = $stmt->fetch();
+            $stmt->execute(Array(':hand' => $hand));
+            $row  = $stmt->fetch();
             $stmt->closeCursor();
             return $row['host'];
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function access($hand, $chan) {
+    function access($hand, $chan)
+    {
         if ($this->hasflags($hand, 'L')) {
             return '0';
         }
         try {
-            $stmt = $this->pMysql->prepare("SELECT `chans` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            $row = $stmt->fetch();
+            $stmt  = $this->pMysql->prepare("SELECT `chans` FROM `users` WHERE `name` = :hand");
+            $stmt->execute(Array(':hand' => $hand));
+            $row   = $stmt->fetch();
             $stmt->closeCursor();
             $chans = unserialize($row['chans']);
-            $c = get_akey_nc($chan, $chans);
+            $c     = get_akey_nc($chan, $chans);
             if ($c != '') {
                 return $chans[$c]['access'];
             }
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
         return "0";
     }
 
-    function setAccess($chan, $hand, $access) {
-        $chan = strtolower($chan);
-        $hchans = $this->chans($hand);
+    function setAccess($chan, $hand, $access)
+    {
+        $chan                    = strtolower($chan);
+        $hchans                  = $this->chans($hand);
         $hchans[$chan]['access'] = $access;
-        $hchans = serialize($hchans);
+        $hchans                  = serialize($hchans);
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :hchans WHERE `name` = :hand");
-            $stmt->execute(Array(':hchans'=>$hchans,':hand'=>$hand));
+            $stmt->execute(Array(':hchans' => $hchans, ':hand' => $hand));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function delchan($chan) {
+    function delchan($chan)
+    {
         $bots = $this->gM('channel')->botsOnChan($chan);
         if (!empty($bots)) {
             //dont remove users if other bots are still on the channel
             return;
         }
-        $chan = strtolower($chan);
+        $chan  = strtolower($chan);
         $users = explode(' ', trim($this->chan_users($chan)));
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :hchans WHERE `name` = :user");
             foreach ($users as $user) {
-                $user = explode(':', $user);
+                $user   = explode(':', $user);
                 unset($user[0]);
-                $user = implode(':', $user);
+                $user   = implode(':', $user);
                 $hchans = $this->chans($user);
                 unset($hchans[$chan]);
                 $hchans = serialize($hchans);
-                $stmt->execute(Array(':hchans'=>$hchans,':user'=>$user));
+                $stmt->execute(Array(':hchans' => $hchans, ':user' => $user));
                 $stmt->closeCursor();
             }
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function getzip($hand) {
-        //$row = $this->pMysql->fetchArray("SELECT zipcode FROM users WHERE name = '" . mysql_escape_string($hand) . "'");
-        //return $row['zipcode'];
+    function getzip($hand)
+    {
         return $this->gM('SetReg')->getASet($hand, 'user', 'zip');
     }
 
-    function getEmail($hand) {
+    function getEmail($hand)
+    {
         try {
             $stmt = $this->pMysql->prepare("SELECT `email` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            $row = $stmt->fetch();
+            $stmt->execute(Array(':hand' => $hand));
+            $row  = $stmt->fetch();
             $stmt->closeCursor();
             return $row['email'];
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function setEmail($hand, $email) {
+    function setEmail($hand, $email)
+    {
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `email` = :email WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand,':email'=>$email));
+            $stmt->execute(Array(':hand' => $hand, ':email' => $email));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function chans($hand) {
+    function chans($hand)
+    {
         try {
             $stmt = $this->pMysql->prepare("SELECT `chans` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            $row = $stmt->fetch();
+            $stmt->execute(Array(':hand' => $hand));
+            $row  = $stmt->fetch();
             $stmt->closeCursor();
             return unserialize($row['chans']);
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function laston($hand) {
+    function laston($hand)
+    {
         try {
             $stmt = $this->pMysql->prepare("SELECT `lastseen` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            $row = $stmt->fetch();
+            $stmt->execute(Array(':hand' => $hand));
+            $row  = $stmt->fetch();
             $stmt->closeCursor();
             return $row['lastseen'];
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function flags($hand) {
+    function flags($hand)
+    {
         try {
             $stmt = $this->pMysql->prepare("SELECT `flags` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            $row = $stmt->fetch();
+            $stmt->execute(Array(':hand' => $hand));
+            $row  = $stmt->fetch();
             $stmt->closeCursor();
             return $row['flags'];
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
@@ -615,7 +603,8 @@ class user extends Module {
      * @param string $hflags Optionaly, you may provide the flags for hand
      * @return int
      */
-    function hasflags($hand, $flags, $hflags = FALSE) {
+    function hasflags($hand, $flags, $hflags = FALSE)
+    {
         //if($hand == 'BotNetwork') return TRUE; //lol
         if ($flags == '') {
             return true;
@@ -628,7 +617,7 @@ class user extends Module {
         }
         $bits = 0;
         foreach ($flagz as $fs) {
-            $fs = str_split($fs);
+            $fs  = str_split($fs);
             $res = true;
             foreach ($fs as &$flag) {
                 if (strrpos($handflags, $flag) === FALSE) {
@@ -642,106 +631,105 @@ class user extends Module {
         return $bits;
     }
 
-    function hasOverride($hand) {
+    function hasOverride($hand)
+    {
         if ($this->hasflags($hand, 'L')) {
             return false;
         }
         return $this->hasflags($hand, 'g');
     }
 
-    function addflags($hand, $flags) {
-        if ($this->hasflags($hand, $flags))
+    function addflags($hand, $flags)
+    {
+        if ($this->hasflags($hand, $flags)) {
             return;
+        }
         $cflags = $this->flags($hand);
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `flags` = :flags WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand,':flags'=>$cflags.$flags));
+            $stmt->execute(Array(':hand' => $hand, ':flags' => $cflags . $flags));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function delflags($hand, $flags) {
-        if (!$this->hasflags($hand, $flags))
+    function delflags($hand, $flags)
+    {
+        if (!$this->hasflags($hand, $flags)) {
             return;
+        }
         $cflags = $this->flags($hand);
-        $flags = str_split($flags);
+        $flags  = str_split($flags);
         foreach ($flags as &$flag) {
             $cflags = implode('', explode($flag, $cflags));
         }
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `flags` = :flags WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand,':flags'=>$cflags));
+            $stmt->execute(Array(':hand' => $hand, ':flags' => $cflags));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function hand_exists($hand) {
+    function hand_exists($hand)
+    {
         try {
             $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            if($stmt->rowCount() > 0) {
+            $stmt->execute(Array(':hand' => $hand));
+            if ($stmt->rowCount() > 0) {
                 return true;
             }
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function gethandcase($hand) {
+    function gethandcase($hand)
+    {
         try {
             $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            $row = $stmt->fetch();
-            if($stmt->rowCount() > 0) {
+            $stmt->execute(Array(':hand' => $hand));
+            $row  = $stmt->fetch();
+            if ($stmt->rowCount() > 0) {
                 return $row['name'];
             }
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    function set($hand, $mod, $name, $val) {
+    function set($hand, $mod, $name, $val)
+    {
         try {
             $stmt = $this->pMysql->prepare("SELECT `settings` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            $row = $stmt->fetch();
-            if($stmt->rowCount() == 0) {
+            $stmt->execute(Array(':hand' => $hand));
+            $row  = $stmt->fetch();
+            if ($stmt->rowCount() == 0) {
                 return;
             }
             $stmt->closeCursor();
-            $settings = unserialize($row['settings']);
+            $settings              = unserialize($row['settings']);
             $settings[$mod][$name] = $val;
-            $stmt = $this->pMysql->prepare("UPDATE `users` SET `settings` = :sets WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand,':sets'=>  serialize($settings)));
+            $stmt                  = $this->pMysql->prepare("UPDATE `users` SET `settings` = :sets WHERE `name` = :hand");
+            $stmt->execute(Array(':hand' => $hand, ':sets' => serialize($settings)));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
     //These settings are seperate from SetReg (.set command)
-    function getSet($hand, $mod, $name) {
+    function getSet($hand, $mod, $name)
+    {
         try {
             $stmt = $this->pMysql->prepare("SELECT `settings` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            $row = $stmt->fetch();
-            if($stmt->rowCount() == 0) {
+            $stmt->execute(Array(':hand' => $hand));
+            $row  = $stmt->fetch();
+            if ($stmt->rowCount() == 0) {
                 return;
             }
             $stmt->closeCursor();
@@ -749,60 +737,68 @@ class user extends Module {
             if (!is_array($settings)) {
                 return null;
             }
-            if (array_key_exists($mod, $settings) && array_key_exists($name, $settings[$mod])) {
+            if (array_key_exists($mod, $settings) && array_key_exists($name,
+                                                                      $settings[$mod])) {
                 return $settings[$mod][$name];
             }
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
-    
+
     /**
      * Return an array of every username in the database
      * @return Array
      */
-    function allUsers() {
-    	$ret = Array();
-    	try {
-    		$stmt = $this->pMysql->prepare("SELECT `name` FROM `users`");
-    		$stmt->execute();
-    		while($row = $stmt->fetch()) {
-    			$ret[] = $row['name'];
-    		}
-    		$stmt->closeCursor();
-    	} catch (PDOException $e) {
-    		$PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-    		echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-    		$this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-    	}
-    	return $ret;
+    function allUsers()
+    {
+        $ret = Array();
+        try {
+            $stmt = $this->pMysql->prepare("SELECT `name` FROM `users`");
+            $stmt->execute();
+            while ($row  = $stmt->fetch()) {
+                $ret[] = $row['name'];
+            }
+            $stmt->closeCursor();
+        } catch (PDOException $e) {
+            $this->reportPDO($e);
+        }
+        return $ret;
     }
 
-    function staff_position($hand) {
+    function staff_position($hand)
+    {
         $level = '';
         if ($this->hasflags($hand, 'N|O|T|U')) {
             //if($this->hasflags($hand, 'U')) $level = "\2Owns the bot(s) " . ubots($hand) . "\2";
-            if ($this->hasflags($hand, 'N'))
+            if ($this->hasflags($hand, 'N')) {
                 $level = "\2NOOB\2";
-            if ($this->hasflags($hand, 'T'))
+            }
+            if ($this->hasflags($hand, 'T')) {
                 $level = "\2Trial\2";
-            if ($this->hasflags($hand, 'O'))
+            }
+            if ($this->hasflags($hand, 'O')) {
                 $level = "\2Support Helper\2";
-            if ($this->hasflags($hand, 'G'))
+            }
+            if ($this->hasflags($hand, 'G')) {
                 $level = "\2Global Operator\2";
-            if ($this->hasflags($hand, 'A'))
+            }
+            if ($this->hasflags($hand, 'A')) {
                 $level = "\2Administrator\2";
-            if ($this->hasflags($hand, 'S'))
+            }
+            if ($this->hasflags($hand, 'S')) {
                 $level = "\2Senior Administrator\2";
-            if ($this->hasflags($hand, 'F'))
+            }
+            if ($this->hasflags($hand, 'F')) {
                 $level = "\2Founder\2";
-            if ($this->hasflags($hand, 'D'))
+            }
+            if ($this->hasflags($hand, 'D')) {
                 $level = "\2Developer\2";
+            }
         }
-        if ($this->hasflags($hand, 'L'))
+        if ($this->hasflags($hand, 'L')) {
             $level .= " (Account Suspended)";
+        }
         return $level;
     }
 
@@ -811,7 +807,8 @@ class user extends Module {
      * it with oneshot hooks. or something...
      */
 
-    function na_arg($arg, $nick, $cmd = NULL) {
+    function na_arg($arg, $nick, $cmd = NULL)
+    {
         $h = str_split($arg);
         if ($h[0] == '*') {
             unset($h[0]);
@@ -839,136 +836,140 @@ class user extends Module {
             $this->pIrc->notice($nick, "$arg is not authed");
             return;
         }
-        //$this->pIrc->msg("#bots-dev",$cmd);
         return $h;
     }
 
-    function chan_users($chan) {
+    function chan_users($chan)
+    {
         try {
-            $stmt = $this->pMysql->prepare("SELECT `name`,`chans` FROM `users` WHERE `chans` LIKE :chan");
-            $stmt->execute(Array(':chan'=>"%$chan%"));
-            $rows = $stmt->fetchAll();
+            $stmt  = $this->pMysql->prepare("SELECT `name`,`chans` FROM `users` WHERE `chans` LIKE :chan");
+            $stmt->execute(Array(':chan' => "%$chan%"));
+            $rows  = $stmt->fetchAll();
             $users = '';
             foreach ($rows as $row) {
                 $chans = unserialize($row['chans']);
-                $c = get_akey_nc($chan, $chans);
-                if (!empty($c))
+                $c     = get_akey_nc($chan, $chans);
+                if (!empty($c)) {
                     $users .= $chans[$c]['access'] . ":$row[name] ";
+                }
             }
             return $users;
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
-    
-    function getEpithet($hand) {
+
+    function getEpithet($hand)
+    {
         try {
             $stmt = $this->pMysql->prepare("SELECT `epithet` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand));
-            $row = $stmt->fetch();
+            $stmt->execute(Array(':hand' => $hand));
+            $row  = $stmt->fetch();
             $stmt->closeCursor();
             return $row['epithet'];
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
-    
-    function setEpithet($hand, $val) {
+
+    function setEpithet($hand, $val)
+    {
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `epithet` = :val WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand,':val'=>$val));
+            $stmt->execute(Array(':hand' => $hand, ':val' => $val));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
-    
-    function setFlags($hand, $val) {
+
+    function setFlags($hand, $val)
+    {
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `flags` = :val WHERE `name` = :hand");
-            $stmt->execute(Array(':hand'=>$hand,':val'=>$val));
+            $stmt->execute(Array(':hand' => $hand, ':val' => $val));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e);
         }
     }
 
-    /*
-     * Below here i'll try to keep the irc commands
-     */
-
-    function cmd_access($nick, $target, $arg2) {
-        //Setup our normal variables..
-        $arg = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->byHost($host);
-        $chan = strtolower($target); //Later on we might change this command for use via PM
+    function cmd_access($nick, $target, $arg2)
+    {
+        $arg    = explode(' ', $arg2);
+        $host   = $this->pIrc->n2h($nick);
+        $hand   = $this->byHost($host);
+        $chan   = strtolower($target); //Later on we might change this command for use via PM
         $access = $this->access($hand, $chan);
 
         if (empty($arg[0])) {
             if ($hand == '') {
                 $this->pIrc->notice($nick, "You are not authed with BotOps");
-                $this->pIrc->notice($nick, "Syntax: /msg " . $this->pIrc->currentNick() . " auth <username> <password>");
-                return $this->gM('CmdReg')->rV['OK'];
+                $this->pIrc->notice($nick,
+                                    "Syntax: /msg " . $this->pIrc->currentNick() . " auth <username> <password>");
+                return $this->OK;
             }
-            
+
             if ($this->hasflags($hand, 'N|O|T|U')) {
                 $epithet = $this->getEpithet($hand);
-                $level = $this->staff_position($hand);
+                $level   = $this->staff_position($hand);
                 $this->pIrc->notice($nick, "$nick is $epithet ($level)");
             }
             if ($access == 0) {
                 if ($this->hasflags($hand, 'g')) {
-                    $this->pIrc->notice($nick, "$nick ($hand) lacks access to $chan but has \2Override\2 enabled.");
+                    $this->pIrc->notice($nick,
+                                        "$nick ($hand) lacks access to $chan but has \2Override\2 enabled.");
                 } else {
-                    $this->pIrc->notice($nick, "$nick ($hand) lacks access to $chan");
+                    $this->pIrc->notice($nick,
+                                        "$nick ($hand) lacks access to $chan");
                 }
             } else {
                 if ($this->hasflags($hand, 'g')) {
-                    $this->pIrc->notice($nick, "$nick ($hand) has access level\2 $access \2in $chan and has \2Override\2 enabled.");
+                    $this->pIrc->notice($nick,
+                                        "$nick ($hand) has access level\2 $access \2in $chan and has \2Override\2 enabled.");
                 } else {
-                    $this->pIrc->notice($nick, "$nick ($hand) has access level\2 $access \2in $chan.");
+                    $this->pIrc->notice($nick,
+                                        "$nick ($hand) has access level\2 $access \2in $chan.");
                 }
             }
         } else {
-            $h = "cmd_access_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(chr(32), $arg) . "\",\"" . $arg2 . "\")";
+            $h = "cmd_access_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(chr(32),
+                                                                                                                                                 $arg) . "\",\"" . $arg2 . "\")";
             $h = $this->na_arg($arg[0], $nick, $h);
             //  $h = na_arg($arg[0], $nick);
-            if ($h == '')
-                return $this->gM('CmdReg')->rV['OK'];
-            $access = $this->access($h, $chan);
+            if ($h == '') {
+                return $this->OK;
+            }
+            $access  = $this->access($h, $chan);
             $epithet = $this->getEpithet($h);
             if ($this->hasflags($h, 'N|O|T|U')) {
                 $epithet = $row['epithet'];
-                $level = $this->staff_position($h);
+                $level   = $this->staff_position($h);
                 $this->pIrc->notice($nick, "$arg[0] is $epithet ($level)");
             }
             if ($access == 0) {
                 if ($this->hasflags($h, 'g')) {
-                    $this->pIrc->notice($nick, "$arg[0] ($h) lacks access to $chan but has \2Override\2 enabled.");
+                    $this->pIrc->notice($nick,
+                                        "$arg[0] ($h) lacks access to $chan but has \2Override\2 enabled.");
                 } else {
-                    $this->pIrc->notice($nick, "$arg[0] ($h) lacks access to $chan");
+                    $this->pIrc->notice($nick,
+                                        "$arg[0] ($h) lacks access to $chan");
                 }
             } else {
                 if ($this->hasflags($h, 'g')) {
-                    $this->pIrc->notice($nick, "$arg[0] ($h) has access level\2 $access \2in $chan and has \2Override\2 enabled.");
+                    $this->pIrc->notice($nick,
+                                        "$arg[0] ($h) has access level\2 $access \2in $chan and has \2Override\2 enabled.");
                 } else {
-                    $this->pIrc->notice($nick, "$arg[0] ($h) has access level\2 $access \2in $chan.");
+                    $this->pIrc->notice($nick,
+                                        "$arg[0] ($h) has access level\2 $access \2in $chan.");
                 }
             }
-            return $this->gM('CmdReg')->rV['OK'];
+            return $this->OK;
         }
     }
 
-    function setOverride($hand, $val) {
+    function setOverride($hand, $val)
+    {
         if ($val) {
             $this->addflags($hand, 'g');
             return 'Security Override ENABLED';
@@ -978,7 +979,8 @@ class user extends Module {
         }
     }
 
-    function cmd_oset($nick, $chan, $msg) {
+    function cmd_oset($nick, $chan, $msg)
+    {
         list($argc, $argv) = niceArgs($msg);
         $hand = $this->byNick($nick);
         if ($argc < 2) {
@@ -989,12 +991,13 @@ class user extends Module {
             return $this->ERROR;
         }
         if ($this->ishigher($hand, $h) != $hand &&
-                (!$this->hasflags($hand, 'D') && !$this->hasflags($hand, 'F'))) {
-            $this->pIrc->notice($nick, "$h has the same or more access then yourself");
+            (!$this->hasflags($hand, 'D') && !$this->hasflags($hand, 'F'))) {
+            $this->pIrc->notice($nick,
+                                "$h has the same or more access then yourself");
             return $this->ERROR;
         }
         $what = strtolower($argv[1]);
-        $val = arg_range($argv, 2, -1);
+        $val  = arg_range($argv, 2, -1);
         if ($what == 'epithet') {
             if ($val == '') {
                 $val = $this->getEpithet($h);
@@ -1011,8 +1014,10 @@ class user extends Module {
                 $this->pIrc->notice($nick, "$h's flags are set to: $val");
                 return $this->ERROR; //no log on view
             }
-            if ($h == $hand && !$this->hasflags($hand, 'D') && !$this->hasflags($hand, 'F')) {
-                $this->pIrc->notice($nick, "You cannot set your own flags with this command");
+            if ($h == $hand && !$this->hasflags($hand, 'D') && !$this->hasflags($hand,
+                                                                                'F')) {
+                $this->pIrc->notice($nick,
+                                    "You cannot set your own flags with this command");
                 return $this->ERROR;
             }
 
@@ -1020,7 +1025,7 @@ class user extends Module {
                 $this->setFlags($h, $val);
             } else {
                 $flags = str_split($val);
-                $add = true;
+                $add   = true;
                 foreach ($flags as $f) {
                     if ($f == '+') {
                         $add = true;
@@ -1043,33 +1048,45 @@ class user extends Module {
     }
 
     //(D)Developer, (F)Founder, (S)Senior Administrator, (A)Administrator, (G)Global Operator, (O)Support Helper, (T)Trial
-    function ishigher($hand1, $hand2) {
-        if ($this->saccess($hand1) == $this->saccess($hand2))
+    function ishigher($hand1, $hand2)
+    {
+        if ($this->saccess($hand1) == $this->saccess($hand2)) {
             return '*';
-        if ($this->saccess($hand1) > $this->saccess($hand2))
+        }
+        if ($this->saccess($hand1) > $this->saccess($hand2)) {
             return $hand1;
-        if ($this->saccess($hand1) < $this->saccess($hand2))
+        }
+        if ($this->saccess($hand1) < $this->saccess($hand2)) {
             return $hand2;
+        }
     }
 
-    function saccess($hand) {
+    function saccess($hand)
+    {
         $f = $this->flags($hand);
-        if (cisin($f, 'F'))
+        if (cisin($f, 'F')) {
             return '10';
-        if (cisin($f, 'S'))
+        }
+        if (cisin($f, 'S')) {
             return '9';
-        if (cisin($f, 'A'))
+        }
+        if (cisin($f, 'A')) {
             return '8';
-        if (cisin($f, 'G'))
+        }
+        if (cisin($f, 'G')) {
             return '7';
-        if (cisin($f, 'O'))
+        }
+        if (cisin($f, 'O')) {
             return '6';
-        if (cisin($f, 'T'))
+        }
+        if (cisin($f, 'T')) {
             return '1';
+        }
         return '0';
     }
 
-    function cmd_god($nick, $chan, $msg) {
+    function cmd_god($nick, $chan, $msg)
+    {
         list($argc, $argv) = niceArgs($msg);
         $hand = $this->byNick($nick);
         if ($hand == '') {
@@ -1082,118 +1099,129 @@ class user extends Module {
             } else {
                 $this->pIrc->notice($nick, $this->setOverride($hand, true));
             }
-            return;
+            return $this->OK;
         }
         if ($argv[0] == 'on') {
             $this->pIrc->notice($nick, $this->setOverride($hand, true));
-            return;
+            return $this->OK;
         }
         if ($argv[0] == 'off') {
             $this->pIrc->notice($nick, $this->setOverride($hand, true));
-            return;
+            return $this->OK;
         }
         return $this->BADARGS;
     }
 
-    function cmd_clvl($nick, $target, $arg2) {
+    function cmd_clvl($nick, $target, $arg2)
+    {
         //Setup our normal variables..
-        $arg = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->byHost($host);
-        $chan = strtolower($target); //Later on we might change this command for use via PM
+        $arg    = explode(' ', $arg2);
+        $host   = $this->pIrc->n2h($nick);
+        $hand   = $this->byHost($host);
+        $chan   = strtolower($target); //Later on we might change this command for use via PM
         $access = $this->access($hand, $chan);
 
-        if (!is_array($arg))
+        if (!is_array($arg)) {
             $arg = explode(' ', $arg);
+        }
         if ($hand == '') {
-            $this->pIrc->notice($nick, 'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password');
-            return 1;
+            $this->pIrc->notice($nick,
+                                'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password');
+            return $this->ERROR;
         }
         if (empty($arg[0]) || empty($arg[1])) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
+            return $this->BADARGS;
         }
-        $h = "cmd_clvl_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(' ', $arg) . "\",\"" . $arg2 . "\")";
+        $h      = "cmd_clvl_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(' ',
+                                                                                                                                            $arg) . "\",\"" . $arg2 . "\")";
         $arg[0] = $this->na_arg($arg[0], $nick, $h);
         //$arg[0] = na_arg($arg[0], $nick);
-        if (empty($arg[0]))
-            return;
+        if (empty($arg[0])) {
+            return; //TODO wtf?
+        }
         if ($this->access($arg[0], $chan) == 0) {
             $this->pIrc->notice($nick, "$arg[0] lacks access to $chan.");
-            return $this->gM('CmdReg')->rV['ERROR'];
+            return $this->ERROR;
         }
         if ($arg[1] == 0) {
-            $this->pIrc->notice($nick, "You cannot give someone 0 access; Use deluser instead.");
-            return $this->gM('CmdReg')->rV['ERROR'];
+            $this->pIrc->notice($nick,
+                                "You cannot give someone 0 access; Use deluser instead.");
+            return $this->ERROR;
         }
-        if ($this->access($arg[0], $chan) >= $access && $this->hasflags($hand, 'g') == 0) {
-            $this->pIrc->notice($nick, 'You cannot give someone access greater then or equal to your own.');
-            return $this->gM('CmdReg')->rV['ERROR'];
+        if ($this->access($arg[0], $chan) >= $access && $this->hasflags($hand,
+                                                                        'g') == 0) {
+            $this->pIrc->notice($nick,
+                                'You cannot give someone access greater then or equal to your own.');
+            return $this->ERROR;
         }
         if ($arg[1] >= $access && $this->hasflags($hand, 'g') == 0) {
-            $this->pIrc->notice($nick, 'You cannot give someone access greater then or equal to your own.');
-            return $this->gM('CmdReg')->rV['ERROR'];
+            $this->pIrc->notice($nick,
+                                'You cannot give someone access greater then or equal to your own.');
+            return $this->ERROR;
         }
-        $ret = $this->gM('CmdReg')->rV['OK'];
-        if (($arg[1] >= $access || $this->access($arg[0], $chan) >= $access) && $this->hasflags($hand, 'g') == 1) {
+        $ret = $this->OK;
+        if (($arg[1] >= $access || $this->access($arg[0], $chan) >= $access) && $this->hasflags($hand,
+                                                                                                'g') == 1) {
             //logs($this->pIrc->nick, "CLVL", $host, implode(' ', $arg), '1', $hand, $chan);
-            $ret = $this->gM('CmdReg')->rV['OVERRIDE'] | $this->gM('CmdReg')->rV['OK'];
+            $ret = $this->OVERRIDE | $this->OK;
         }
-        $hchans = $this->chans($arg[0]);
+        $hchans    = $this->chans($arg[0]);
         $newaccess = $arg[1];
         if (!is_numeric($newaccess)) {
             $this->pIrc->notice($nick, "$arg[1] is an invalid access level.");
             return $this->ERROR;
         }
-        $newaccess = round($newaccess, 2);
+        $newaccess                                     = round($newaccess, 2);
         $hchans[get_akey_nc($chan, $hchans)]['access'] = $newaccess;
-        $hchans = serialize($hchans);
+        $hchans                                        = serialize($hchans);
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :chans WHERE `name` = :hand");
-            $stmt->execute(Array(':chans'=>$hchans,':hand'=>$arg[0]));
+            $stmt->execute(Array(':chans' => $hchans, ':hand' => $arg[0]));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e, $nick);
+            return $this->ERROR;
         }
         $this->pIrc->notice($nick, "$arg[0] now has $newaccess access to $chan.");
         return $ret;
     }
 
-    function cmd_adduser($nick, $target, $arg2) {
+    function cmd_adduser($nick, $target, $arg2)
+    {
         //Setup our normal variables..
-        $arg = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->byHost($host);
-        $chan = strtolower($target); //Later on we might change this command for use via PM
+        $arg    = explode(' ', $arg2);
+        $host   = $this->pIrc->n2h($nick);
+        $hand   = $this->byHost($host);
+        $chan   = strtolower($target); //Later on we might change this command for use via PM
         $access = $this->access($hand, $chan);
 
-        if (!is_array($arg))
+        if (!is_array($arg)) {
             $arg = explode(' ', $arg);
+        }
         if ($hand == '') {
-            $this->pIrc->notice($nick, 'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password');
-            return 1;
+            $this->pIrc->notice($nick,
+                                'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password');
+            return $this->ERROR;
         }
         if (empty($arg[0]) || empty($arg[1])) {
-            //$this->pIrc->notice($nick, 'Syntax: adduser <*account|nick> <level>');
-            return $this->gM('CmdReg')->rV['BADARGS'];
+            return $this->BADARGS;
         }
         if ($arg[1] >= $access && $this->hasflags($hand, 'g') == 0) {
-            $this->pIrc->notice($nick, 'You cannot give someone access greater then or equal to your own.');
-            return $this->gM('CmdReg')->rV['ERROR'];
+            $this->pIrc->notice($nick,
+                                'You cannot give someone access greater then or equal to your own.');
+            return $this->ERROR;
         }
-        $h = "cmd_adduser_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(' ', $arg) . "\",\"" . $arg2 . "\")";
+        $h      = "cmd_adduser_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(' ',
+                                                                                                                                               $arg) . "\",\"" . $arg2 . "\")";
         $arg[0] = $this->na_arg($arg[0], $nick, $h);
         if ($arg[1] >= $access && $this->hasflags($hand, 'g') == 1) {
             //logs($this->pIrc->nick, "ADDUSER", $host, implode(' ',$arg), '1', $hand, $chan);
-            $ret = $this->gM('CmdReg')->rV['OVERRIDE'] | $this->gM('CmdReg')->rV['OK'];
-            ;
+            $ret = $this->OVERRIDE | $this->OK;
         } else {
-            $ret = $this->gM('CmdReg')->rV['OK'];
-            ;
+            $ret = $this->OK;
         }
         if (empty($arg[0])) {
-            return $this->gM('CmdReg')->rV['ERROR'];
+            return $this->ERROR;
         }
         if ($this->access($arg[0], $chan) > 0) {
             $this->pIrc->notice($nick, "$arg[0] already has access to $chan.");
@@ -1205,84 +1233,88 @@ class user extends Module {
             $this->pIrc->notice($nick, "$arg[1] is an invalid access level.");
             return $this->ERROR;
         }
-        $newaccess = round($newaccess, 2);
-        $hchans = $this->chans($arg[0]);
+        $newaccess               = round($newaccess, 2);
+        $hchans                  = $this->chans($arg[0]);
         $hchans[$chan]['access'] = $newaccess;
-        $hchans = serialize($hchans);
+        $hchans                  = serialize($hchans);
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :chans WHERE `name` = :hand");
-            $stmt->execute(Array(':chans'=>$hchans,':hand'=>$arg[0]));
+            $stmt->execute(Array(':chans' => $hchans, ':hand' => $arg[0]));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e, $nick);
+            return $this->ERROR;
         }
         $this->pIrc->notice($nick, "$arg[0] now has $newaccess access to $chan.");
         return $ret;
     }
 
     //CMDDEFAULTS 1 1
-    function cmd_deluser($nick, $target, $arg2) {
+    function cmd_deluser($nick, $target, $arg2)
+    {
         //Setup our normal variables..
-        $arg = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->byHost($host);
-        $chan = strtolower($target); //Later on we might change this command for use via PM
+        $arg    = explode(' ', $arg2);
+        $host   = $this->pIrc->n2h($nick);
+        $hand   = $this->byHost($host);
+        $chan   = strtolower($target); //Later on we might change this command for use via PM
         $access = $this->access($hand, $chan);
 
-        if (!is_array($arg))
+        if (!is_array($arg)) {
             $arg = explode(' ', $arg);
+        }
         if ($hand == '') {
-            $this->pIrc->notice($nick, 'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password');
-            return 1;
+            $this->pIrc->notice($nick,
+                                'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password');
+            return $this->ERROR;
         }
         if (empty($arg[0])) {
             $this->pIrc->notice($nick, 'Syntax: deluser <*account|nick>');
-            return $this->gM('CmdReg')->rV['BADARGS'];
+            return $this->BADARGS;
         }
-        $h = "cmd_deluser_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(' ', $arg) . "\",\"" . $arg2 . "\")";
+        $h      = "cmd_deluser_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(' ',
+                                                                                                                                               $arg) . "\",\"" . $arg2 . "\")";
         $arg[0] = $this->na_arg($arg[0], $nick, $h);
         //$arg[0] = na_arg($arg[0], $nick);
-        if (empty($arg[0]))
-            return $this->gM('CmdReg')->rV['ERROR'];
-        if ($this->access($arg[0], $chan) >= $access && $this->hasflags($hand, 'g') == 0) {
-            $this->pIrc->notice($nick, 'You cannot remove someone with access greater then or equal to your own.');
-            return $this->gM('CmdReg')->rV['ERROR'];
+        if (empty($arg[0])) {
+            return $this->ERROR;
         }
-        if ($this->access($arg[0], $chan) >= $access && $this->hasflags($hand, 'g') == 1) {
+        if ($this->access($arg[0], $chan) >= $access && $this->hasflags($hand,
+                                                                        'g') == 0) {
+            $this->pIrc->notice($nick,
+                                'You cannot remove someone with access greater then or equal to your own.');
+            return $this->ERROR;
+        }
+        if ($this->access($arg[0], $chan) >= $access && $this->hasflags($hand,
+                                                                        'g') == 1) {
             //logs($this->pIrc->nick, "DELUSER", $host, implode(' ', $arg), '1', $hand, $chan);
-            $ret = $this->gM('CmdReg')->rV['OK'] | $this->gM('CmdReg')->rV['OVERRIDE'];
+            $ret = $this->OK | $this->OVERRIDE;
         } else {
-            $ret = $this->gM('CmdReg')->rV['OK'];
+            $ret = $this->OK;
         }
         if ($this->access($arg[0], $chan) == 0) {
             $this->pIrc->notice($nick, "$arg[0] has no access to $chan.");
-            return $this->gM('CmdReg')->rV['ERROR'];
+            return $this->ERROR;
         }
         $hchans = $this->chans($arg[0]);
         unset($hchans[get_akey_nc($chan, $hchans)]);
         $hchans = serialize($hchans);
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :chans WHERE `name` = :hand");
-            $stmt->execute(Array(':chans'=>$hchans,':hand'=>$arg[0]));
+            $stmt->execute(Array(':chans' => $hchans, ':hand' => $arg[0]));
             $stmt->closeCursor();
         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $this->reportPDO($e, $nick);
+            return $this->ERROR;
         }
-        $this->pIrc->notice($nick, "$arg[0]'s access has been removed from $chan.");
+        $this->pIrc->notice($nick,
+                            "$arg[0]'s access has been removed from $chan.");
         return $ret;
     }
 
-    function cmd_users($nick, $target, $arg2) {
-        //Setup our normal variables..
-        $arg = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->byHost($host);
+    function cmd_users($nick, $target, $arg2)
+    {
         $chan = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->access($hand, $chan);
+
         /*
          * Fix this later when we find what to do with chan_search
           if(!empty($arg[0])) {
@@ -1294,18 +1326,20 @@ class user extends Module {
           }
           }
          */
-        $users = explode(' ', trim($this->chan_users($chan)));
+        $users  = explode(' ', trim($this->chan_users($chan)));
         $unsort = array();
-        $this->pIrc->notice($nick, "Showing (" . count($users) . ") users for $chan");
+        $this->pIrc->notice($nick,
+                            "Showing (" . count($users) . ") users for $chan");
         if (count($users) > 1) {
-            $out = array(array('Level', 'Username', 'lastonline', '| Level', 'Username', 'lastonline'));
+            $out = array(array('Level', 'Username', 'lastonline', '| Level', 'Username',
+                    'lastonline'));
         } else {
             $out = array(array('Level', 'Username', 'lastonline'));
         }
         for ($i = 0; $i < count($users); $i++) {
-            $user = explode(':', $users[$i]);
-            $level = array_shift($user);
-            $user = implode('', $user);
+            $user   = explode(':', $users[$i]);
+            $level  = array_shift($user);
+            $user   = implode('', $user);
             $online = '';
             $online = $this->laston($user);
             if ($online != 'now' && $online != '') {
@@ -1321,7 +1355,7 @@ class user extends Module {
         $unsort = $temp;
         if (count($users) < 2) {
             for ($i = 0; $i < count($unsort); $i++) {
-                $u = $unsort[$i];
+                $u     = $unsort[$i];
                 $out[] = array($u[0], $u[1], $u[2]);
             }
         } else {
@@ -1340,7 +1374,7 @@ class user extends Module {
         foreach ($out as &$line) {
             $this->pIrc->notice($nick, implode('', $line));
         }
-        return $this->gM('CmdReg')->rV['OK'];
+        return $this->OK;
     }
 
 }

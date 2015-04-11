@@ -29,55 +29,65 @@
  * Class Module
  * @author knivey
  */
-class Module {
+class Module
+{
+
     /* classes */
+
     /**
      *  @var Irc
      */
     public $pIrc;
+
     /**
      *  @var Sockets
      */
     public $pSockets;
+
     /**
      *  @var BotNet
      */
     public $pBotNet;
+
     /**
      *  @var PDO
      */
     protected $pMysql;
+
     /**
      *  @var ModuleManager
      */
     public $pMM;
-    
+
     /**
      * Configuration file info
      * @var Array $pCInfo
      */
     public $pCInfo;
-    
     //return values here for CmdReg commands
-    public $OK = 1; //everything went fine
-    public $BADARGS = 2; //syntax used wrong
+    public $OK       = 1; //everything went fine
+    public $BADARGS  = 2; //syntax used wrong
     public $OVERRIDE = 4; //Overide was used
-    public $ERROR = 8;        //Problem while running we should do nothing
+    public $ERROR    = 8; //Problem while running we should do nothing
 
-    public function setVars(Irc $pIrc, Sockets $pSockets, $pBotNet, PDO $pMysql, ModuleManager $pMM, $pCInfo) {
-        $this->pIrc = $pIrc;
+    public function setVars(Irc $pIrc, Sockets $pSockets, $pBotNet, PDO $pMysql,
+                            ModuleManager $pMM, $pCInfo)
+    {
+        $this->pIrc     = $pIrc;
         $this->pSockets = $pSockets;
-        $this->pBotNet = $pBotNet;
-        $this->pMysql = $pMysql;
-        $this->pMM = $pMM;
-        $this->pCInfo = $pCInfo;
+        $this->pBotNet  = $pBotNet;
+        $this->pMysql   = $pMysql;
+        $this->pMM      = $pMM;
+        $this->pCInfo   = $pCInfo;
     }
 
-    public function init() {
+    public function init()
+    {
         /* called when modules is loaded */
     }
 
-    public function logic() { //called every loop
+    public function logic()
+    { //called every loop
     }
 
     /**
@@ -85,23 +95,27 @@ class Module {
      * @param string $mod name of the module to get instance of
      * @return Module
      */
-    public function gM($mod) {
+    public function gM($mod)
+    {
         return $this->pMM->modules[$mod]['class'];
     }
 
-    public function cleanup() {
+    public function cleanup()
+    {
         /* called if modules needs to be removed */
     }
 
-    public function rehash(&$LastClass) {
+    public function rehash(&$LastClass)
+    {
         //called when module needs to copy into a new version of itself
         //some modules may just to just cleanup and start new
     }
-    
-    public function mq($value) {
+
+    public function mq($value)
+    {
         return substr($this->pMysql->quote($value), 1, -1);
     }
-    
+
     /**
      * Get an element from the bot main.conf file, used mainly for api keys
      * Will return an array the first element is an error if not null
@@ -112,20 +126,33 @@ class Module {
      * @param string $name
      * @return multitype:string mixed
      */
-    public function pGetConfig($name) {
-    	if($this->pCInfo == null || !is_array($this->pCInfo)) {
-    		return Array('Invalid Config', null);
-    	}
-    	$key = get_akey_nc($name, $this->pCInfo);
-    	if ($key == null) {
-    		return Array('Config item not found', null);
-    	}
-    	$r = null;
-    	if(count($this->pCInfo[$key]) == 1) {
-    		$r = $this->pCInfo[$key][0];
-    	} else {
-    		$r = $this->pCInfo[$key];
-    	}
-    	return Array(null, $r);
+    public function pGetConfig($name)
+    {
+        if ($this->pCInfo == null || !is_array($this->pCInfo)) {
+            return Array('Invalid Config', null);
+        }
+        $key = get_akey_nc($name, $this->pCInfo);
+        if ($key == null) {
+            return Array('Config item not found', null);
+        }
+        $r = null;
+        if (count($this->pCInfo[$key]) == 1) {
+            $r = $this->pCInfo[$key][0];
+        } else {
+            $r = $this->pCInfo[$key];
+        }
+        return Array(null, $r);
     }
+
+    public function reportPDO($e, $nick = NULL)
+    {
+        $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
+        echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
+        $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+        if ($n != NULL) {
+            $this->pIrc->notice($nick,
+                                "We're sorry but an unexpected error has occurred. Staff have been notified.");
+        }
+    }
+
 }
