@@ -403,8 +403,7 @@ class user extends Module
 
     function cmd_whoami($nick, $target, $args)
     {
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
+        $hand = $this->byNick($nick);
         if ($hand == '') {
             $hand = 'You are not authed.';
         }
