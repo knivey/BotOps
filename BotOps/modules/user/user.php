@@ -352,47 +352,52 @@ class user extends Module
 
     function cmd_auth($nick, $target, $args)
     {
-        $arg  = explode(' ', $args);
+        list($argc, $argv) = niceArgs($args);
         $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
+        $hand = $this->byHost($host);
         if ($hand != '') {
             $this->pIrc->notice($nick, "You are already authed to account $hand");
             return $this->ERROR;
         }
-        if (empty($arg[0]) || empty($arg[1])) {
+        if ($argc < 2) {
             return $this->BADARGS;
         }
+        
+        $hand = $argv[0];
+        $pass = $argv[1];
+        
         try {
             $stmt = $this->pMysql->prepare("SELECT `pass`,`flags` FROM `users` WHERE `name` = :hand");
-            $stmt->execute(Array(':hand' => $arg[0]));
+            $stmt->execute(Array(':hand' => $hand));
             if ($stmt->rowCount() == 0) {
                 $this->pIrc->notice($nick,
-                                    "Failed to auth, either the username $arg[0] doesn't exist.");
+                                    "Failed to auth, the username $hand doesn't exist.");
                 return $this->ERROR;
             }
             $row = $stmt->fetch();
             $stmt->closeCursor();
-            if (md5($arg[1]) == $row['pass']) {
+            
+            if (md5($pass) == $row['pass']) {
                 $stmt = $this->pMysql->prepare("UPDATE `users` SET `host`=:host,`cookie`=NULL,`lastseen`='now' WHERE `name` = :hand");
-                $stmt->execute(Array(':hand' => $arg[0], ':host' => $host));
+                $stmt->execute(Array(':hand' => $hand, ':host' => $host));
                 $stmt->closeCursor();
                 $this->pIrc->notice($nick,
-                                    "You are now authed to account $arg[0]");
-                if ($this->hasflags($arg[0], 'T|O', $row['flags'])) {
+                                    "You are now authed to account $hand");
+                if ($this->hasflags($hand, 'T|O', $row['flags'])) {
                     $this->pIrc->msg('#botstaff',
-                                     "Notice $nick has authed to " . $this->staff_position($arg[0]) . " account $arg[0]");
+                                     "Notice $nick has authed to " . $this->staff_position($hand) . " account $hand");
                 }
             } else {
-                if ($this->hasflags($arg[0], 'T|O', $row['flags'])) {
+                if ($this->hasflags($hand, 'T|O', $row['flags'])) {
                     $this->pIrc->notice($nick,
-                                        "Failed to auth to " . $this->staff_position($arg[0]) . " account, either the username $arg[0] password $arg[1] was incorrect, This incident will be reported.");
+                                        "Failed to auth to " . $this->staff_position($hand) . " account $hand, the password was incorrect, This incident will be reported.");
                     $this->pIrc->msg('#botstaff',
-                                     "Failed AUTH attempt on " . $this->staff_position($arg[0]) . " account $arg[0] by $nick");
+                                     "Failed AUTH attempt on " . $this->staff_position($hand) . " account $hand by $nick");
                 } else {
                     $this->pIrc->notice($nick,
-                                        "Failed to auth, either the username $arg[0] doesn't exist or the password $arg[1] was incorrect");
+                                        "Failed to auth, the password for $hand was incorrect, This incident will be reported.");
                     $this->pIrc->msg('#botstaff',
-                                     "Failed AUTH attempt on account $arg[0] by $nick");
+                                     "Failed AUTH attempt on account $hand by $nick");
                 }
             }
         } catch (PDOException $e) {
