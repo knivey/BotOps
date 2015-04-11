@@ -1113,94 +1113,83 @@ class user extends Module
 
     function cmd_clvl($nick, $target, $arg2)
     {
-        //Setup our normal variables..
-        $arg    = explode(' ', $arg2);
-        $host   = $this->pIrc->n2h($nick);
-        $hand   = $this->byHost($host);
+        list($argc, $argv) = niceArgs($arg2);
+        $hand   = $this->byNick($nick);
         $chan   = strtolower($target);
         $access = $this->access($hand, $chan);
 
-        if (!is_array($arg)) {
-            $arg = explode(' ', $arg);
-        }
-        if ($hand == '') {
-            $this->pIrc->notice($nick,
-                                'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password');
-            return $this->ERROR;
-        }
-        if (empty($arg[0]) || empty($arg[1])) {
+        if ($argc < 2) {
             return $this->BADARGS;
         }
-        $h      = "cmd_clvl_users(\"" . $nick . "\",\"" . $host . "\",\"" . $hand . "\",\"" . $chan . "\",\"" . $access . "\",\"" . implode(' ',
-                                                                                                                                            $arg) . "\",\"" . $arg2 . "\")";
-        $arg[0] = $this->na_arg($arg[0], $nick, $h);
-        //$arg[0] = na_arg($arg[0], $nick);
-        if (empty($arg[0])) {
-            return; //TODO wtf?
+
+        $who = $this->na_arg($argv[0], $nick);
+        if (empty($who)) {
+            return;
         }
-        if ($this->access($arg[0], $chan) == 0) {
-            $this->pIrc->notice($nick, "$arg[0] lacks access to $chan.");
+
+        if ($this->access($who, $chan) == 0) {
+            $this->pIrc->notice($nick, "$who lacks access to $chan.");
             return $this->ERROR;
         }
-        if ($arg[1] == 0) {
+
+        if (!is_numeric($argv[1])) {
+            $this->pIrc->notice($nick, "$argv[1] is an invalid access level.");
+            return $this->ERROR;
+        }
+        $newaccess = round($argv[1], 2);
+        $curaccess = $this->access($who, $chan);
+
+        $ret = $this->OK;
+        if ($newaccess >= $access || $curaccess >= $access) {
+            if ($this->hasflags($hand, 'g') == 0) {
+                $this->pIrc->notice($nick,
+                                    'You cannot alter access greater then or equal to your own.');
+                return $this->ERROR;
+            } else {
+                $ret = $this->OVERRIDE | $this->OK;
+            }
+        }
+
+        if ($newaccess == 0) {
             $this->pIrc->notice($nick,
                                 "You cannot give someone 0 access; Use deluser instead.");
             return $this->ERROR;
         }
-        if ($this->access($arg[0], $chan) >= $access && $this->hasflags($hand,
-                                                                        'g') == 0) {
-            $this->pIrc->notice($nick,
-                                'You cannot give someone access greater then or equal to your own.');
-            return $this->ERROR;
-        }
-        if ($arg[1] >= $access && $this->hasflags($hand, 'g') == 0) {
-            $this->pIrc->notice($nick,
-                                'You cannot give someone access greater then or equal to your own.');
-            return $this->ERROR;
-        }
-        $ret = $this->OK;
-        if (($arg[1] >= $access || $this->access($arg[0], $chan) >= $access) && $this->hasflags($hand,
-                                                                                                'g') == 1) {
-            //logs($this->pIrc->nick, "CLVL", $host, implode(' ', $arg), '1', $hand, $chan);
-            $ret = $this->OVERRIDE | $this->OK;
-        }
-        $hchans    = $this->chans($arg[0]);
-        $newaccess = $arg[1];
-        if (!is_numeric($newaccess)) {
-            $this->pIrc->notice($nick, "$arg[1] is an invalid access level.");
-            return $this->ERROR;
-        }
-        $newaccess                                     = round($newaccess, 2);
-        $hchans[get_akey_nc($chan, $hchans)]['access'] = $newaccess;
-        $hchans                                        = serialize($hchans);
+
+        $hchans                 = $this->chans($who);
+        $key                    = get_akey_nc($chan, $hchans); // Better safe than sorry
+        $hchans[$key]['access'] = $newaccess;
+        $hchans                 = serialize($hchans);
+
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :chans WHERE `name` = :hand");
-            $stmt->execute(Array(':chans' => $hchans, ':hand' => $arg[0]));
+            $stmt->execute(Array(':chans' => $hchans, ':hand' => $who));
             $stmt->closeCursor();
         } catch (PDOException $e) {
             $this->reportPDO($e, $nick);
             return $this->ERROR;
         }
-        $this->pIrc->notice($nick, "$arg[0] now has $newaccess access to $chan.");
+
+        $this->pIrc->notice($nick, "$who now has $newaccess access to $chan.");
         return $ret;
     }
 
     function cmd_adduser($nick, $target, $arg2)
     {
-        $arg    = explode(' ', $arg2);
+        list($argc, $argv) = niceArgs($arg2);
         $hand   = $this->byNick($nick);
         $chan   = strtolower($target);
         $access = $this->access($hand, $chan);
 
-        if (empty($arg[0]) || empty($arg[1])) {
+        if ($argc < 2) {
             return $this->BADARGS;
         }
 
-        if (!is_numeric($arg[1])) {
-            $this->pIrc->notice($nick, "$arg[1] is an invalid access level.");
+        if (!is_numeric($argv[1])) {
+            $this->pIrc->notice($nick, "$argv[1] is an invalid access level.");
             return $this->ERROR;
         }
-        $newaccess = round($arg[1], 2);
+        $newaccess = round($argv[1], 2);
 
         $ret = $this->OK;
         if ($newaccess >= $access) {
@@ -1213,7 +1202,7 @@ class user extends Module
             }
         }
 
-        $who = $this->na_arg($arg[0], $nick, NULL);
+        $who = $this->na_arg($argv[0], $nick, NULL);
         if (empty($who)) {
             return $this->ERROR;
         }
@@ -1242,16 +1231,16 @@ class user extends Module
 
     function cmd_deluser($nick, $target, $arg2)
     {
-        $arg    = explode(' ', $arg2);
+        list($argc, $argv) = niceArgs($arg2);
         $hand   = $this->byNick($nick);
         $chan   = strtolower($target);
         $access = $this->access($hand, $chan);
 
-        if (empty($arg[0])) {
+        if ($argc < 1) {
             return $this->BADARGS;
         }
 
-        $who = $this->na_arg($arg[0], $nick);
+        $who = $this->na_arg($argv[0], $nick);
         if (empty($who)) {
             return $this->ERROR;
         }
@@ -1271,11 +1260,11 @@ class user extends Module
             $this->pIrc->notice($nick, "$who has no access to $chan.");
             return $this->ERROR;
         }
-        
+
         $hchans = $this->chans($who);
         unset($hchans[get_akey_nc($chan, $hchans)]);
         $hchans = serialize($hchans);
-        
+
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :chans WHERE `name` = :hand");
             $stmt->execute(Array(':chans' => $hchans, ':hand' => $who));
@@ -1284,9 +1273,8 @@ class user extends Module
             $this->reportPDO($e, $nick);
             return $this->ERROR;
         }
-        
-        $this->pIrc->notice($nick,
-                            "$who's access has been removed from $chan.");
+
+        $this->pIrc->notice($nick, "$who's access has been removed from $chan.");
         return $ret;
     }
 
