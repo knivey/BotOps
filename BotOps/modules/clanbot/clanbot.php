@@ -8,6 +8,7 @@ class clanbot extends Module
         'notice',
         'chan',
         'act',
+        'chanserv',
     );
 
     function cmd_bindalias($nick, $chan, $msg)
@@ -82,12 +83,14 @@ class clanbot extends Module
         $this->gM('channel')->chgSet($chan, 'clanbot', 'binds', $sets);
     }
 
-    function cmd_bind($nick, $target, $arg2)
+    function cmd_bind($nick, $chan, $arg2)
     {
-        $arg  = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $chan = strtolower($target);
+        $arg      = explode(' ', $arg2); // Need to preserve spacing of content
+        $host     = $this->pIrc->n2h($nick);
+        $hand     = $this->gM('user')->byHost($host);
+        $access   = $this->gM('user')->access($hand, $chan);
+        $override = $this->gM('user')->hasOverride($hand);
+
         if (count($arg) < 2) {
             return $this->BADARGS;
         }
@@ -95,6 +98,7 @@ class clanbot extends Module
         $value   = implode(' ', $arg);
         //check if the bind exists
         $newBind = $this->getBind($chan, $bind);
+        $rv      = $this->OK;
         if ($newBind == null) {
             $newBind = Array(
                 'value' => $value,
@@ -111,9 +115,19 @@ class clanbot extends Module
             $newBind['by']    = $hand;
             $newBind['date']  = time();
             $reply            = "Bind $bind has been updated";
+            if ($newBind['type'] == 'chanserv' && $access < 5) {
+                if ($override) {
+                    $rv = $this->OK | $this->OVERRIDE;
+                } else {
+                    $this->pIrc->notice($nick,
+                                        "You need level 5 access to modify chanserv bindtypes.");
+                    return $this->ERROR;
+                }
+            }
         }
         $this->setBind($chan, $bind, $newBind);
         $this->pIrc->notice($nick, $reply);
+        return $rv;
     }
 
     public $bindvalue = '';
@@ -133,8 +147,8 @@ class clanbot extends Module
             case 'notice':
                 $this->pIrc->notice($nick, $message);
                 break;
-            case 'act':
-                $this->pIrc->act($chan, $message);
+            case 'chanserv':
+                $this->pIrc->raw("cs $chan $message");
                 break;
             case 'chan':
                 $this->pIrc->msg($chan, $message);
@@ -186,7 +200,9 @@ class clanbot extends Module
     function cmd_bindtype($nick, $chan, $msg)
     {
         list($argc, $argv) = niceArgs($msg);
-        $hand = $this->gM('user')->byNick($nick);
+        $hand     = $this->gM('user')->byNick($nick);
+        $access   = $this->gM('user')->access($hand, $chan);
+        $override = $this->gM('user')->hasOverride($hand);
         if ($argc < 1) {
             return $this->BADARGS;
         }
@@ -212,13 +228,25 @@ class clanbot extends Module
                                 "Bind please choose a correct type: $types");
             return $this->ERROR;
         }
-        
+
+        $rv = $this->OK;
+        if ($type == 'chanserv' && $access < 5) {
+            if ($override) {
+                $rv = $this->OK | $this->OVERRIDE;
+            } else {
+                $this->pIrc->notice($nick,
+                                    "You need level 5 access to modify chanserv bindtypes.");
+                return $this->ERROR;
+            }
+        }
+
         $bindInfo['type'] = $type;
         $bindInfo['by']   = $hand;
         $bindInfo['date'] = time();
         $this->setBind($chan, $bind, $bindInfo);
-        
+
         $this->pIrc->notice($nick, "Bindtype for $bind is now set to $type");
+        return $rv;
     }
 
     function v_binds()
