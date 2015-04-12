@@ -256,10 +256,12 @@ class user extends Module
                                 "For security your password must be longer then 5 characters, password not updated.");
             return $this->ERROR;
         }
+        
+        $pass = password_hash($argv[0], PASSWORD_BCRYPT);
 
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `pass` = :pass WHERE `name` = :hand");
-            $stmt->execute(Array(':hand' => $hand, ':pass' => md5($argv[0])));
+            $stmt->execute(Array(':hand' => $hand, ':pass' => $pass));
             $stmt->closeCursor();
         } catch (PDOException $e) {
             $this->reportPDO($e, $nick);
@@ -331,7 +333,7 @@ class user extends Module
 
         $params = Array(
             ':name'   => $hand,
-            ':pass'   => md5($pass),
+            ':pass'   => password_hash($pass, PASSWORD_BCRYPT),
             ':date'   => time(),
             ':laston' => time(),
             ':host'   => $host,
@@ -378,6 +380,9 @@ class user extends Module
             $this->reportPDO($e);
             return $this->ERROR;
         }
+        if($row['pass']{0} == '$') {
+            return password_verify($pass, $row['pass']);
+        }
         if (md5($pass) == $row['pass']) {
             return true;
         } else {
@@ -412,7 +417,13 @@ class user extends Module
             $row = $stmt->fetch();
             $stmt->closeCursor();
 
-            if (md5($pass) == $row['pass']) {
+            $passValid = false;
+            if($row['pass']{0} == '$') {
+                $passValid = password_verify($pass, $row['pass']);
+            } else {
+                $passValid = (md5($pass) == $row['pass']);
+            }
+            if ($passValid) {
                 $stmt = $this->pMysql->prepare("UPDATE `users` SET `host`=:host,`cookie`=NULL,`lastseen`='now' WHERE `name` = :hand");
                 $stmt->execute(Array(':hand' => $hand, ':host' => $host));
                 $stmt->closeCursor();
