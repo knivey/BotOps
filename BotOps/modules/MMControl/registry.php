@@ -19,7 +19,6 @@ class registry {
             Array('modules', 'cmd_modules', "", "List modules"),
             Array('addmodule', 'cmd_addmodule', "<module>", "Add a new bot specific module.", 'chan'),
             Array('delmodule', 'cmd_delmodule', "<module>", "Remove a bot specific module.", 'chan'),
-            Array('svn', 'cmd_svn', "<command>", "Execute a subversion command")
         ),
         'binds' => Array(
             Array('reload', 'D', 'reload', "", "", "", '3'),
@@ -27,7 +26,6 @@ class registry {
             Array('modules', '0', 'modules', "", "", "", '0'),
             Array('addmodule', 'D', 'addmodule', "", "", "", '3'),
             Array('delmodule', 'D', 'delmodule', "", "", "", '3'),
-            Array('svn', 'D', 'svn', "", "", "", '3')
         )
     );
 }

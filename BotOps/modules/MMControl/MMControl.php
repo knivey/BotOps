@@ -138,27 +138,5 @@ class MMControl extends Module {
         $this->pIrc->notice($nick, "Modules loaded: $loaded");
     }
 
-    function cmd_svn($nick, $target, $arg2) {
-        //Setup our normal variables..
-        $arg = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $chan = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->gM('user')->access($hand, $chan);
-        if(empty($arg[0])) {
-		return $this->gM('CmdReg')->rV['BADARGS'];
-	}
-        if(cisin($arg2, '`&;')) {
-		$this->pIrc->notice($nick, "Invalid characters found.");
-		return $this->gM('CmdReg')->rV['ERROR'];
-	}
-        if($target{0} != '#') return $this->gM('CmdReg')->rV['ERROR'];
-        if($arg2 != 'update') {
-            $this->pIrc->notice($nick, "Only update available thanks to \2KURIZU\2");
-            return $this->gM('CmdReg')->rV['ERROR'];
-        }
-        $msg = trim(`svn $arg2`);
-        $this->pIrc->msg($target, $msg, false);
-    }
 }
 ?>
