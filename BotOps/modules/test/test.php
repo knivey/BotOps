@@ -113,41 +113,17 @@ class test extends Module {
         $msg = $params[1];
         $this->pIrc->msg($target, $msg);
     }
-
-    function rehash(&$old) {
-        return;
-    }
-
-    function loaded($args) {
-        $this->reloaded($args);
-    }
     
-    function reloaded($args) {
-        if($args['name'] == 'test') {
-/*
-            $svninfo = exec('svn info | grep \'Last Changed\'', $svnvar);
-            $ver_rev = explode(': ', $svnvar[1]);
-            $ver_rev = $ver_rev[1];
-            $ver_date = explode(': ', $svnvar[2]);
-            $ver_date = $ver_date[1];
-            $ver_date = explode('(', $ver_date);
-            $ver_date = trim($ver_date[0]);
-            $ver_date = strftime('%c', strtotime($ver_date));
-*/
-            $ver_rev = "unknown";
-            $ver_date = "unknown";
-
-
-            $phpv = phpversion();
-            $uname = php_uname('s');
-            $uname .= ' ' . php_uname('r');
-            $uname .= ' ' . php_uname('m');
-            $this->version = "BotOps version 2.1, Revision: $ver_rev Last Modified: $ver_date Running on $uname PHP Version $phpv";
-        }
-    }
-    
-    function cmd_version($n, $c, $t) {    
-        $this->pIrc->notice($n, $this->version);
+    function cmd_version($n, $c, $t)
+    {
+        $ver_rev  = `git log --format=%h -1`;
+        $ver_date = `git log --format=%cd -1`;
+        $phpv     = phpversion();
+        $uname    = php_uname('s');
+        $uname .= ' ' . php_uname('r');
+        $uname .= ' ' . php_uname('m');
+        $version  = "BotOps version 2.1, Commit#: $ver_rev Last Modified: $ver_date Running on $uname PHP Version $phpv";
+        $this->pIrc->notice($n, $version);
     }
 
     function cmd_eval($nick, $target, $text) {

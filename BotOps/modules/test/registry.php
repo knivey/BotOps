@@ -15,11 +15,6 @@ class registry {
         Array('msg', 'rpc_msg')
     );
     
-    var $slots = Array(
-        Array('loaded', 'ModuleManager', 'load'),
-        Array('reloaded', 'ModuleManager', 'reload'),
-    );
-    
     var $CmdReg = Array(
         'funcs' => Array(
             Array('eval', 'cmd_eval', "<code>", "evaluate php code"),
