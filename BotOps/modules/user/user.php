@@ -270,6 +270,23 @@ class user extends Module
         $this->pIrc->notice($nick,
                             "Your password has been updated, don't forget it!");
     }
+    
+    /**
+     * Migrate users password to new hash
+     * @param string $hand
+     * @param string $pass
+     */
+    function updatePass($hand, $pass)
+    {
+        $pass = password_hash($pass, PASSWORD_BCRYPT);
+        try {
+            $stmt = $this->pMysql->prepare("UPDATE `users` SET `pass` = :pass WHERE `name` = :hand");
+            $stmt->execute(Array(':hand' => $hand, ':pass' => $pass));
+            $stmt->closeCursor();
+        } catch (PDOException $e) {
+            $this->reportPDO($e);
+        }
+    }
 
     function email_inuse($email)
     {
@@ -422,6 +439,9 @@ class user extends Module
                 $passValid = password_verify($pass, $row['pass']);
             } else {
                 $passValid = (md5($pass) == $row['pass']);
+                if ($passValid) {
+                    $this->updatePass($hand, $pass);
+                }
             }
             if ($passValid) {
                 $stmt = $this->pMysql->prepare("UPDATE `users` SET `host`=:host,`cookie`=NULL,`lastseen`='now' WHERE `name` = :hand");
