@@ -10,3 +10,4 @@ BotOps/httppostsend
 vendor
 BotOps/chanlogs/*
 BotOps/logs/*
+BotOps/pisg.cfg
