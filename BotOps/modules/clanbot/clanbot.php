@@ -3,6 +3,33 @@
 class clanbot extends Module
 {
 
+    public $bindTypes = Array(
+        'default',
+        'notice',
+        'chan',
+        'act',
+    );
+
+    function cmd_bindalias($nick, $chan, $msg)
+    {
+        
+    }
+
+    function cmd_bindvisible($nick, $chan, $msg)
+    {
+        
+    }
+
+    function cmd_bindmakeprivate($nick, $chan, $msg)
+    {
+        
+    }
+
+    function cmd_bindmakepublic($nick, $chan, $msg)
+    {
+        
+    }
+
     /**
      * checks if our settings exist on the channel
      * if not then create them
@@ -38,6 +65,7 @@ class clanbot extends Module
 
     function setBind($chan, $bind, $data)
     {
+        $chan        = strtolower($chan);
         $bind        = strtolower($bind);
         $this->checkInit($chan);
         $sets        = $this->gM('channel')->getSet($chan, 'clanbot', 'binds');
@@ -155,34 +183,42 @@ class clanbot extends Module
         $this->pIrc->notice($nick, "Bind $arg[0] has been removed");
     }
 
-    function cmd_bindtype($nick, $target, $arg2)
+    function cmd_bindtype($nick, $chan, $msg)
     {
-        $arg  = explode(' ', $arg2);
+        list($argc, $argv) = niceArgs($msg);
         $hand = $this->gM('user')->byNick($nick);
-        $chan = strtolower($target);
-        if ($arg2 == '') {
+        if ($argc < 1) {
             return $this->BADARGS;
         }
-        $bindInfo = $this->getBind($chan, $arg[0]);
+
+        $bind = $argv[0];
+
+        $bindInfo = $this->getBind($chan, $bind);
         if ($bindInfo == null) {
-            $this->pIrc->notice($nick, "Bind $arg[0] does not exist");
+            $this->pIrc->notice($nick, "Bind $bind does not exist");
             return $this->ERROR;
         }
-        if (!isset($arg[1])) {
-            $this->pIrc->notice($nick, "Bindtype for $arg[0] is $bindInfo[type]");
+
+        if ($argc < 2) {
+            $this->pIrc->notice($nick, "Bindtype for $bind is $bindInfo[type]");
             return $this->OK;
         }
-        $type = strtolower($arg[1]);
-        if ($type != 'default' && $type != 'notice' && $type != 'chan' && $type != 'act') {
+
+        $type = strtolower($argv[1]);
+
+        if (!in_array($type, $this->bindTypes)) {
+            $types = implode(',', $this->bindTypes);
             $this->pIrc->notice($nick,
-                                "Bind please choose a correct type: default, notice, chan, act");
+                                "Bind please choose a correct type: $types");
             return $this->ERROR;
         }
+        
         $bindInfo['type'] = $type;
         $bindInfo['by']   = $hand;
         $bindInfo['date'] = time();
-        $this->setBind($chan, strtolower($arg[0]), $bindInfo);
-        $this->pIrc->notice($nick, "Bindtype for $arg[0] is now set to $type");
+        $this->setBind($chan, $bind, $bindInfo);
+        
+        $this->pIrc->notice($nick, "Bindtype for $bind is now set to $type");
     }
 
     function v_binds()
