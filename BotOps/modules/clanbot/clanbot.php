@@ -22,7 +22,7 @@ class clanbot extends Module
         if ($argc < 1) {
             return $this->BADARGS;
         }
-        $this->setBindHidden($chan, $argv[0], false);
+        $this->setBindHidden($chan, $argv[0], true);
         $this->pIrc->notice($nick,
                             $argv[0] . ' is now hidden from $binds and $tbinds',
                             1, 1);
