@@ -33,14 +33,18 @@ class registry {
             Array('unbind', 'cmd_unbind', "<name>", "Remove a bind"),
             Array('bindtype', 'cmd_bindtype', "<name> [default|notice|act|chan]", "Change how a bind responds"),
             Array('binds', 'cmd_binds', "", "Show binds"),
-            Array('bindinfo', 'cmd_bindinfo', "<bind>", "Show information about a bind")
+            Array('bindinfo', 'cmd_bindinfo', "<bind>", "Show information about a bind"),
+            Array('hidebind', 'cmd_hidebind', "<bind>", "Make bind hidden from $\2\2binds and $\2\2tbinds"),
+            Array('unhidebind', 'cmd_unhidebind', "<bind>", "Make bind visible in $\2\2binds and $\2\2tbinds"),
         ),
         'binds' => Array(
             Array('bind', '1', 'bind', "", "", "", '1'),
             Array('unbind', '1', 'unbind', "", "", "", '1'),
             Array('bindtype', '1', 'bindtype', "", "", "", '1'),
             Array('binds', '1', 'binds', "", "", "", '0'),
-            Array('bindinfo', '1', 'bindinfo', "", "", "", '0')
+            Array('bindinfo', '1', 'bindinfo', "", "", "", '0'),
+            Array('hidebind', '1', 'hidebind', "", "", "", '0'),
+            Array('unhidebind', '1', 'unhidebind', "", "", "", '0'),
         )
     );
 }

@@ -13,22 +13,48 @@ class clanbot extends Module
 
     function cmd_bindalias($nick, $chan, $msg)
     {
-        
+        list($argc, $argv) = niceArgs($msg);
     }
 
-    function cmd_bindvisible($nick, $chan, $msg)
+    function cmd_hidebind($nick, $chan, $msg)
     {
-        
+        list($argc, $argv) = niceArgs($msg);
+        if ($argc < 1) {
+            return $this->BADARGS;
+        }
+        $this->setBindHidden($chan, $argv[0], false);
+        $this->pIrc->notice($nick,
+                            $argv[0] . ' is now hidden from $binds and $tbinds',
+                            1, 1);
+    }
+
+    function cmd_unhidebind($nick, $chan, $msg)
+    {
+        list($argc, $argv) = niceArgs($msg);
+        if ($argc < 1) {
+            return $this->BADARGS;
+        }
+        $this->setBindHidden($chan, $argv[0], false);
+        $this->pIrc->notice($nick,
+                            $argv[0] . ' is no longer hidden in $binds and $tbinds',
+                            1, 1);
+    }
+
+    function setBindHidden($chan, $bind, $val)
+    {
+        $bindInfo           = $this->getBind($chan, $bind);
+        $bindInfo['hidden'] = (bool) $val;
+        $this->setBind($chan, $bind, $bindInfo);
     }
 
     function cmd_bindmakeprivate($nick, $chan, $msg)
     {
-        
+        list($argc, $argv) = niceArgs($msg);
     }
 
     function cmd_bindmakepublic($nick, $chan, $msg)
     {
-        
+        list($argc, $argv) = niceArgs($msg);
     }
 
     /**
@@ -253,6 +279,11 @@ class clanbot extends Module
     {
         $chan  = $this->gM('ParseUtil')->getV('chan');
         $binds = $this->getAllBinds($chan);
+        foreach ($binds as $key => $val) {
+            if (array_key_exists('hidden', $val) && $val['hidden'] == true) {
+                unset($binds[$key]);
+            }
+        }
         $list  = implode(', ', array_keys($binds));
         return $list;
     }
@@ -261,8 +292,13 @@ class clanbot extends Module
     {
         $chan  = $this->gM('ParseUtil')->getV('chan');
         $binds = $this->getAllBinds($chan);
-        $trig  = $this->gM('channel')->getTrig($chan);
-        $list  = '';
+        foreach ($binds as $key => $val) {
+            if (array_key_exists('hidden', $val) && $val['hidden'] == true) {
+                unset($binds[$key]);
+            }
+        }
+        $trig = $this->gM('channel')->getTrig($chan);
+        $list = '';
         foreach (array_keys($binds) as $b) {
             $list .= $trig . $b . ' ';
         }
