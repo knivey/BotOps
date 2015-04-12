@@ -173,9 +173,6 @@ class clanbot extends Module
             case 'notice':
                 $this->pIrc->notice($nick, $message);
                 break;
-            case 'chanserv':
-                $this->pIrc->raw("cs $chan $message");
-                break;
             case 'chan':
                 $this->pIrc->msg($chan, $message);
                 break;
@@ -200,6 +197,10 @@ class clanbot extends Module
         $this->gM('CmdReg')->lastCmdInfo['cmd'] = $bindInfo['name'];
         if ($type == 'act') {
             $this->pIrc->act($chan, $bindInfo['value']);
+            return true;
+        }
+        if ($type == 'chanserv') {
+            $this->pIrc->chanserv($chan, $bindInfo['value']);
             return true;
         }
         $extras = Array($cmd, $nick, $chan, $bindInfo, $type);

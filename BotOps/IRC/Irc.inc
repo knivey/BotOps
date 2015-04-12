@@ -578,6 +578,29 @@ class Irc {
     }
 
     /**
+     * Sends a chanserv command for a channel
+     * @param string $t The channel
+     * @param string $m The message
+     * @param bool $no_p If true no parseutil parsing
+     */
+    public function chanserv($t, $m, $no_p = false) {
+        if(!$no_p) {
+            $this->gM('ParseUtil')->parse($m, 'Pchanserv', $this, Array('t' => $t));
+        } else {
+            $this->Pchanserv($m, Array('t' => $t));
+        }
+    }
+    
+    public function Pchanserv($m, $ex)
+    {
+        $t = $ex['t'];
+        $mm = $this->wrappy($t, $m, false);
+        if(!empty($mm[0])) {
+            $this->raw("CS $t $mm[0]");
+        }
+    }
+    
+    /**
      * Send a privmsg
      * @param string $t The target
      * @param string $m The message
