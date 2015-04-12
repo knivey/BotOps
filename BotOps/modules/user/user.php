@@ -38,7 +38,7 @@ class user extends Module
             $this->pIrc->notice($nick, "You are not authed.");
             return $this->ERROR;
         }
-        
+
         try {
             $stmt = $this->pMysql->prepare("UPDATE `users` SET `host` = NULL WHERE `name` = :hand");
             $stmt->execute(Array(':hand' => $hand));
@@ -256,7 +256,7 @@ class user extends Module
                                 "For security your password must be longer then 5 characters, password not updated.");
             return $this->ERROR;
         }
-        
+
         $pass = password_hash($argv[0], PASSWORD_BCRYPT);
 
         try {
@@ -380,7 +380,7 @@ class user extends Module
             $this->reportPDO($e);
             return $this->ERROR;
         }
-        if($row['pass']{0} == '$') {
+        if ($row['pass']{0} == '$') {
             return password_verify($pass, $row['pass']);
         }
         if (md5($pass) == $row['pass']) {
@@ -418,7 +418,7 @@ class user extends Module
             $stmt->closeCursor();
 
             $passValid = false;
-            if($row['pass']{0} == '$') {
+            if ($row['pass']{0} == '$') {
                 $passValid = password_verify($pass, $row['pass']);
             } else {
                 $passValid = (md5($pass) == $row['pass']);
