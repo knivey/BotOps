@@ -14,6 +14,17 @@ class clanbot extends Module
     function cmd_bindalias($nick, $chan, $msg)
     {
         list($argc, $argv) = niceArgs($msg);
+        if ($argc < 2) {
+            return $this->BADARGS;
+        }
+        $alias    = $argv[0];
+        $bind     = $argv[1];
+        $bindInfo = $this->getBind($chan, $bind);
+        if (!$bindInfo) {
+            $this->pIrc->notice($nick, "No binds named $bind found.", 0, 0);
+            return $this->ERROR;
+        }
+        
     }
 
     function cmd_hidebind($nick, $chan, $msg)
@@ -285,7 +296,7 @@ class clanbot extends Module
                 unset($binds[$key]);
             }
         }
-        $list  = implode(', ', array_keys($binds));
+        $list = implode(', ', array_keys($binds));
         return $list;
     }
 
