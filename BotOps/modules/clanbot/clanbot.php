@@ -21,7 +21,7 @@ class clanbot extends Module
         $bind     = $argv[1];
         $bindInfo = $this->getBind($chan, $bind);
         if (!$bindInfo) {
-            $this->pIrc->notice($nick, "No binds named $bind found.", 0, 0);
+            $this->pIrc->notice($nick, "No bind named $bind found.", 0, 1);
             return $this->ERROR;
         }
         
@@ -33,7 +33,10 @@ class clanbot extends Module
         if ($argc < 1) {
             return $this->BADARGS;
         }
-        $this->setBindHidden($chan, $argv[0], true);
+        if (!$this->setBindHidden($chan, $argv[0], true)) {
+            $this->pIrc->notice($nick, "No bind named $argv[0] found.", 0, 1);
+            return $this->ERROR;
+        }
         $this->pIrc->notice($nick,
                             $argv[0] . ' is now hidden from $binds and $tbinds',
                             1, 1);
@@ -45,7 +48,10 @@ class clanbot extends Module
         if ($argc < 1) {
             return $this->BADARGS;
         }
-        $this->setBindHidden($chan, $argv[0], false);
+        if(!$this->setBindHidden($chan, $argv[0], false)) {
+            $this->pIrc->notice($nick, "No bind named $argv[0] found.", 0, 1);
+            return $this->ERROR;
+        }
         $this->pIrc->notice($nick,
                             $argv[0] . ' is no longer hidden in $binds and $tbinds',
                             1, 1);
@@ -54,8 +60,12 @@ class clanbot extends Module
     function setBindHidden($chan, $bind, $val)
     {
         $bindInfo           = $this->getBind($chan, $bind);
+        if (!$bindInfo) {
+            return false;
+        }
         $bindInfo['hidden'] = (bool) $val;
         $this->setBind($chan, $bind, $bindInfo);
+        return true;
     }
 
     function cmd_bindmakeprivate($nick, $chan, $msg)
