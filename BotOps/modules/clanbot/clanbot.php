@@ -277,7 +277,7 @@ class clanbot extends Module
         }
 
         $bindInfo['count'] ++;
-        $this->setBind($chan, $cmd, $bindInfo);
+        $this->setBind($chan, $bindInfo['name'], $bindInfo);
 
         $type            = strtolower($bindInfo['type']);
         $this->bindvalue = $bindInfo['value'];
