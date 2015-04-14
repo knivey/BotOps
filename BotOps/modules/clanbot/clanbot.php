@@ -338,6 +338,7 @@ class clanbot extends Module
         }
 
         if (array_key_exists('alias', $bindInfo) && $bindInfo['alias']) {
+            $bind = $bindInfo['value'];
             $bindInfo = $this->getBind($chan, $bindInfo['value']);
             if ($bindInfo == null) {
                 $this->pIrc->notice($nick, "Bind $bind not found.", 0, 1);
