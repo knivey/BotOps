@@ -413,7 +413,7 @@ class clanbot extends Module
         $aliases  = Array();
         foreach ($allbinds as $bind) {
             if (array_key_exists('alias', $bind) && $bind['alias'] == true) {
-                $aliases[] = $bind['name'] . '=>' . $bind['value'];
+                $aliases[] = $bind['name'] . ' => ' . $bind['value'];
             } else {
                 $binds[] = $bind['name'];
             }
