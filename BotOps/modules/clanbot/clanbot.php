@@ -196,6 +196,7 @@ class clanbot extends Module
             return $this->OK;
         }
         if (array_key_exists('alias', $newBind) && $newBind['alias']) {
+            $a = $newBind['value'];
             $newBind = $this->getBind($chan, $newBind['value']);
             if ($newBind == null) {
                 $this->addBind($value, $bind, $hand, $chan);
@@ -203,6 +204,7 @@ class clanbot extends Module
                 $this->pIrc->notice($nick, $reply, 0, 1);
                 return $this->OK;
             }
+            $bind = $a;
         }
         $newBind['name']  = $bind;
         $newBind['value'] = $value;
