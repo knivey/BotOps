@@ -29,6 +29,7 @@ class clanbot extends Module
             $this->pIrc->notice($nick,
                                 "$bind is itself an alias, aliasing to $bindInfo[value] instead.",
                                 0, 1);
+            $bind = $bindInfo['value'];
             $bindInfo = $this->getBind($chan, $bindInfo['value']);
             if (!$bindInfo) {
                 $this->pIrc->notice($nick,
