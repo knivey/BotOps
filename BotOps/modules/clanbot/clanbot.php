@@ -452,7 +452,7 @@ class clanbot extends Module
                             "Bind $bindInfo[name] of type $bindInfo[type]" .
             " last changed " . strftime('%D', $bindInfo['date']) .
             " by $bindInfo[by] and has been used $bindInfo[count] times $extra" .
-            " Value: $bindInfo[value]", 1, 1);
+            "Value: $bindInfo[value]", 1, 1);
     }
 
 }
