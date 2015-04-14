@@ -275,7 +275,7 @@ class clanbot extends Module
                 return false;
             }
         }
-        
+
         $bindInfo['count'] ++;
         $this->setBind($chan, $cmd, $bindInfo);
 
@@ -333,7 +333,7 @@ class clanbot extends Module
             $this->pIrc->notice($nick, "Bind $bind does not exist");
             return $this->ERROR;
         }
-        
+
         if (array_key_exists('alias', $bindInfo) && $bindInfo['alias']) {
             $bindInfo = $this->getBind($chan, $bindInfo['value']);
             if ($bindInfo == null) {
@@ -341,7 +341,7 @@ class clanbot extends Module
                 return $this->ERROR;
             }
         }
-        
+
         if ($argc < 2) {
             $this->pIrc->notice($nick, "Bindtype for $bind is $bindInfo[type]");
             return $this->OK;
@@ -409,8 +409,8 @@ class clanbot extends Module
     function cmd_binds($nick, $chan, $arg2)
     {
         $allbinds = $this->getAllBinds($chan);
-        $binds = Array();
-        $aliases = Array();
+        $binds    = Array();
+        $aliases  = Array();
         foreach ($allbinds as $bind) {
             if (array_key_exists('alias', $bind) && $bind['alias'] == true) {
                 $aliases[] = $bind['name'] . '=>' . $bind['value'];
@@ -418,8 +418,10 @@ class clanbot extends Module
                 $binds[] = $bind['name'];
             }
         }
-        $this->pIrc->notice($nick, "Binds: " . implode(', ', $binds));
-        $this->pIrc->notice($nick, "Aliases: " . implode(', ', $binds));
+        $this->pIrc->notice($nick, "\2Binds:\2 " . implode(', ', $binds));
+        if (!empty($aliases)) {
+            $this->pIrc->notice($nick, "\2Aliases:\2 " . implode(', ', $aliases));
+        }
     }
 
     function cmd_bindinfo($nick, $chan, $arg2)
