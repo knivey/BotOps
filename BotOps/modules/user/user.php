@@ -270,7 +270,7 @@ class user extends Module
         $this->pIrc->notice($nick,
                             "Your password has been updated, don't forget it!");
     }
-    
+
     /**
      * Migrate users password to new hash
      * @param string $hand
@@ -506,9 +506,28 @@ class user extends Module
         if ($host == '') {
             return null;
         }
+        $matches = Array();
+        if (!preg_match("/^~?([^@]+)@([^\.]+)\.[^\.]+\.(gamesurge|support)\$/", $host, $matches)) {
+            try {
+                $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `host` = :host");
+                $stmt->execute(Array(':host' => $host));
+                $row  = $stmt->fetch();
+                $stmt->closeCursor();
+                return $row['name'];
+            } catch (PDOException $e) {
+                $this->reportPDO($e);
+                return null;
+            }
+        }
+        $ident  = preg_quote($matches[1], '/');
+        $asUser = preg_quote($matches[2], '/');
+        $ending = preg_quote($matches[3], '/');
+        
+        $myRegex = "^~?$ident@$asUser\.[^\.]+\.$ending\$";
+
         try {
-            $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `host` = :host");
-            $stmt->execute(Array(':host' => $host));
+            $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `host` REGEX :host");
+            $stmt->execute(Array(':host' => $myRegex));
             $row  = $stmt->fetch();
             $stmt->closeCursor();
             return $row['name'];
