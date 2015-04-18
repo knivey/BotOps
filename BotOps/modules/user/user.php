@@ -526,7 +526,7 @@ class user extends Module
         $myRegex = "^~?$ident@$asUser\.[^\.]+\.$ending\$";
 
         try {
-            $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `host` REGEX :host");
+            $stmt = $this->pMysql->prepare("SELECT `name` FROM `users` WHERE `host` REGEXP :host");
             $stmt->execute(Array(':host' => $myRegex));
             $row  = $stmt->fetch();
             $stmt->closeCursor();
