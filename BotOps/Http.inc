@@ -312,6 +312,9 @@ class Http
         if (array_key_exists('__COOKIE', $this->vstore)) {
             $this->defaultHeader('Cookie', $this->vstore['__COOKIE']);
         }
+        if (array_key_exists('__REFERER', $this->vstore)) {
+            $this->defaultHeader('Referer', $this->vstore['__REFERER']);
+        }
 
         $getQuery .= $this->headerString();
         $getQuery .= "\r\n";
@@ -626,6 +629,7 @@ class Http
                 $this->vstore['__COOKIE'] = $this->header['Set-Cookie'];
             }
             
+            $this->vstore['__REFERER'] = $this->host;
             if(!$redirloop) {
                 $redirect = new Http($this->sockets, $this->pClass, $this->pFunc,
                                      $this->vstore, $this->timeout);
