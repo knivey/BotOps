@@ -630,7 +630,7 @@ class Http
                 echo "Http Redirected to $url\n";
             } else {
                 echo "Redirect loop dectected, stopped\n";
-                $this->pClass->{$this->pFunc}(Array(0 => 0, 1 => "Too many redirects detected.", 'HTTPHASERROR' => 'HTTPERROR'));
+                $this->pClass->{$this->pFunc}(Array(0 => 0, 1 => "Too many redirects detected.", 'HTTPHASERROR' => 'HTTPERROR'), $this->vstore);
             }
             $this->OMGAllDone = true;
             return;
