@@ -630,12 +630,12 @@ class Http
                 echo "Http Redirected to $url\n";
             } else {
                 echo "Redirect loop dectected, stopped\n";
-                $this->pClass->$f(Array(0 => 0, 1 => "Too many redirects detected.", 'HTTPHASERROR' => 'HTTPERROR'));
+                $this->pClass->{$this->pFunc}(Array(0 => 0, 1 => "Too many redirects detected.", 'HTTPHASERROR' => 'HTTPERROR'));
             }
             $this->OMGAllDone = true;
             return;
         }
-        $f                = $this->pFunc;
+        $f = $this->pFunc;
         echo "Http finished!!\n";
         $this->OMGAllDone = true;
         if ($this->XMLRPC) {
