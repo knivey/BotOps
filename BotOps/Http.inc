@@ -308,6 +308,10 @@ class Http
             $this->defaultHeader('Host', $url['host'] . ':' . $url['port']);
         }
         $this->defaultHeader('Connection', 'close');
+        
+        if (array_key_exists('__COOKIE', $this->vstore)) {
+            $this->defaultHeader('Cookie', $this->vstore['__COOKIE']);
+        }
 
         $getQuery .= $this->headerString();
         $getQuery .= "\r\n";
@@ -616,6 +620,10 @@ class Http
                 $this->vstore["__REDIRECTS"]++;
             } else {
                 $this->vstore["__REDIRECTS"] = 0;
+            }
+            
+            if(array_key_exists('Set-Cookie', $this->header)) {
+                $this->vstore['__COOKIE'] = $this->header['Set-Cookie'];
             }
             
             if(!$redirloop) {
