@@ -5,6 +5,7 @@ require_once('Tools/Tools.php');
 
 class youtube extends Module {
     function inmsg($nick, $target, $text) {
+	return;
         $chanpref = $this->gM('SetReg')->getCSet('youtube', $target, 'scan');
         if($chanpref != 'on') {
             return;

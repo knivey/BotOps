@@ -681,7 +681,7 @@ class CmdReg extends Module {
     function SendToMods($cmd,$nick,$chan,$arg2) {
         foreach($this->catchers as $catch) {
             if(method_exists($this->gM($catch['module']), $catch['func'])) {
-                $rv = $this->gM($catch['module'])->$catch['func']($cmd,$nick,$chan,$arg2);
+                $rv = $this->gM($catch['module'])->{$catch['func']}($cmd,$nick,$chan,$arg2);
                 if($rv != null && $rv != false) {
                     return $rv;
                 } else {
@@ -1027,7 +1027,7 @@ class CmdReg extends Module {
         $args = $x[5];
         $cmd = $x[4];
         $loglvl = $this->binds[$cmd]['log'];
-        $retval = $x[0]->$x[1]($x[2], $x[3], $text);
+        $retval = $x[0]->{$x[1]}($x[2], $x[3], $text);
         if($retval & $this->rV['ERROR']) {
         //Not sure what we need to do here for error yet
         //probably nothing ;)

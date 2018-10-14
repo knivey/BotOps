@@ -342,12 +342,12 @@ class user extends Module
             return $this->ERROR;
         }
 
-        if (!ereg("^[a-zA-Z0-9_\-\+`<>\|]+$", $hand)) {
+/*        if (!preg_match("[a-zA-Z0-9_\-\+`<>\|]+", $hand)) {
             $this->pIrc->notice($nick,
                                 "Username may only contain alpha-numeric characters and the following _ - + < > ` |");
             return $this->ERROR;
         }
-
+*/
         $params = Array(
             ':name'   => $hand,
             ':pass'   => password_hash($pass, PASSWORD_BCRYPT),

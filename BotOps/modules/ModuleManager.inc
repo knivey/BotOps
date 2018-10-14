@@ -451,7 +451,7 @@ class ModuleManager {
                 foreach($this->slots[$s['fromMod']][$s['name']] as $slot) {
                 //$class = &$slot['class'];
                     $class = $this->modules[$slot['modName']]['class'];
-                    $class->$slot['func']($s['args']);
+                    $class->{$slot['func']}($s['args']);
                 }
             }
         }

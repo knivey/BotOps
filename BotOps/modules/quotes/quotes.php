@@ -57,7 +57,7 @@ class quotes extends Module {
             $stmt->closeCursor();
             if ($resp != false && array_key_exists('quote', $resp) && $resp['quote'] != '') {
                 if (strtolower($chan) != strtolower($resp['chan']) &&
-                        !$this->gM('user')->hasOveride($this->gM('user')->byNick($nick))) {
+                        !$this->gM('user')->hasOverride($this->gM('user')->byNick($nick))) {
                     $this->pIrc->notice($nick, "You do not have access to remove other channels quotes.");
                     return $this->ERROR;
                 }

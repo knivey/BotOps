@@ -209,7 +209,7 @@ Server: BotOps SimpleHttp\r\n\r\n";
             $fault = $this->generateFault(14, "Unknown Function: that method doesn't exist");
             $this->sendResponse($sock, $fault);
         } else {
-            $response = $proc['cbClass']->$proc['cbFunc']($params);
+            $response = $proc['cbClass']->{$proc['cbFunc']}($params);
             $response = xmlrpc_encode_request(null, $response);
             $this->sendResponse($sock, $response);
         }

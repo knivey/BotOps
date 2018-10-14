@@ -285,7 +285,7 @@ class Sockets {
             'sBytes'       => 0
         );
 
-        $ps['class']->$ps['cFunc']($fp, $ip);
+        $ps['class']->{$ps['cFunc']}($fp, $ip);
         $this->dbg("New socket connection from $ip on $sock accepted to $fp");
     }
 

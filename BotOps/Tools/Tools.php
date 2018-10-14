@@ -245,11 +245,9 @@ function bar_meter($n, $d) {
 	$out = chr(22);
 	if($d < $n) {
 		return "Error: bar overfull";
-		break;
 	}
 	if($d < 10) {
 		return "Error: bar too small";
-		break;
 	}
 	$text = (int)(($n / $d) * 100) . '%';
 	$textpos = (($d / 2) - ((strlen($text)) / 2));
