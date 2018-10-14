@@ -62,7 +62,7 @@ class Http
     public $header = Array();
 
     /**
-     * The data recieved to be parsed
+     * The data received to be parsed
      * @var string
      */
     private $rawData;
@@ -413,7 +413,7 @@ class Http
     }
 
     /**
-     * Get the value of one of the headers recvieved
+     * Get the value of one of the headers received
      * @param string $key
      * @return string
      */
@@ -608,17 +608,31 @@ class Http
             if(!array_key_exists('host', $purl)) {
                 $url = 'Http://' . $this->host . $url;
             }
-
-            $redirect = new Http($this->sockets, $this->pClass, $this->pFunc,
-                                 $this->vstore, $this->timeout);
-            if ($this->qtype == 'get') {
-                $redirect->getQuery($url, $this->vstore);
+            
+            $redirloop = false;
+            if(array_key_exists('__REDIRECTS', $this->vstore)) {
+                if($this->vstore["__REDIRECTS"] >= 5)
+                    $redirloop = true;
+                $this->vstore["__REDIRECTS"]++;
+            } else {
+                $this->vstore["__REDIRECTS"] = 0;
             }
-            if ($this->qtype == 'post') {
-                $redirect->postQuery($url, $this->vstore, $this->pquery);
+            
+            if(!$redirloop) {
+                $redirect = new Http($this->sockets, $this->pClass, $this->pFunc,
+                                     $this->vstore, $this->timeout);
+                if ($this->qtype == 'get') {
+                    $redirect->getQuery($url, $this->vstore);
+                }
+                if ($this->qtype == 'post') {
+                    $redirect->postQuery($url, $this->vstore, $this->pquery);
+                }
+                echo "Http Redirected to $url\n";
+            } else {
+                echo "Redirect loop dectected, stopped\n";
+                $this->pClass->$f(Array(0 => 0, 1 => "Too many redirects detected.", 'HTTPHASERROR' => 'HTTPERROR'));
             }
             $this->OMGAllDone = true;
-            echo "Http Redirected to $url\n";
             return;
         }
         $f                = $this->pFunc;
