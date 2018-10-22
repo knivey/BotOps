@@ -91,6 +91,12 @@ class weather extends Module {
         var_dump($res);
         $w            = simplexml_load_string($res);
         var_dump($w);
+        
+        if($w->status != "OK") {
+            $this->pIrc->msg($chan, "Weather has encountered an error with geocoding API, Status: " . $w->status . " Error Msg: " .$w->error_message);
+            return;
+        }
+        
         $info['name'] = $w->result->formatted_address;
         $long         = (float) $w->result->geometry->location->lng;
         $lat          = (float) $w->result->geometry->location->lat;
