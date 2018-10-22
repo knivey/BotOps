@@ -114,6 +114,12 @@ class Http
      * @var mixed
      */
     public $vstore; //store variables to send to callback
+    
+    /**
+     * Variable storage for initernal use to track cookies and redirects
+     * @var Array
+     */
+    public $internals; //store variables to send to callback
 
     /**
      * Keeps track of chunk length when we are recieving in chunked mode
@@ -202,13 +208,14 @@ class Http
         $this->postQuery($url, $v, $xml);
     }
 
-    public function postQuery($url, $v, $query)
+    public function postQuery($url, $v, $query, Array $internals = Array())
     {
         if ($this->sock != NULL) {
             echo "Http: Warning: Additional query request being ignored.";
             return;
         }
         $this->vstore = $v;
+        $this->internals = $internals;
         $this->qtype  = 'post';
         $this->pquery = $query;
 
@@ -260,13 +267,14 @@ class Http
         $this->query = $postQuery;
     }
 
-    public function getQuery($url, $v)
+    public function getQuery($url, $v, Array $internals = Array())
     {
         if ($this->sock != NULL) {
             echo "Http: Warning: Additional query request being ignored.";
             return;
         }
         $this->vstore = $v;
+        $this->internals = $internals;
         $this->qtype  = 'get';
 
         $this->sock = $this->sockets->createTCP($this, 'readData', 'sockErr', 0,
@@ -308,12 +316,12 @@ class Http
             $this->defaultHeader('Host', $url['host'] . ':' . $url['port']);
         }
         $this->defaultHeader('Connection', 'close');
-        
-        if (array_key_exists('__COOKIE', $this->vstore)) {
-            $this->defaultHeader('Cookie', $this->vstore['__COOKIE']);
+
+        if (array_key_exists('COOKIE', $this->internals)) {
+            $this->defaultHeader('Cookie', $this->internals['COOKIE']);
         }
-        if (array_key_exists('__REFERER', $this->vstore)) {
-            $this->defaultHeader('Referer', $this->vstore['__REFERER']);
+        if (array_key_exists('REFERER', $this->internals)) {
+            $this->defaultHeader('Referer', $this->internals['REFERER']);
         }
 
         $getQuery .= $this->headerString();
@@ -617,27 +625,27 @@ class Http
             }
             
             $redirloop = false;
-            if(array_key_exists('__REDIRECTS', $this->vstore)) {
-                if($this->vstore["__REDIRECTS"] >= 5)
+            if(array_key_exists('REDIRECTS', $this->internals)) {
+                if($this->internals["REDIRECTS"] >= 5)
                     $redirloop = true;
-                $this->vstore["__REDIRECTS"]++;
+                $this->internals["REDIRECTS"]++;
             } else {
-                $this->vstore["__REDIRECTS"] = 0;
+                $this->internals = Array("REDIRECTS" => 0);
             }
             
             if(array_key_exists('Set-Cookie', $this->header)) {
-                $this->vstore['__COOKIE'] = $this->header['Set-Cookie'];
+                $this->internals['COOKIE'] = $this->header['Set-Cookie'];
             }
             
-            $this->vstore['__REFERER'] = $this->host;
+            $this->internals['REFERER'] = $this->host;
             if(!$redirloop) {
                 $redirect = new Http($this->sockets, $this->pClass, $this->pFunc,
                                      $this->vstore, $this->timeout);
                 if ($this->qtype == 'get') {
-                    $redirect->getQuery($url, $this->vstore);
+                    $redirect->getQuery($url, $this->vstore, $this->internals);
                 }
                 if ($this->qtype == 'post') {
-                    $redirect->postQuery($url, $this->vstore, $this->pquery);
+                    $redirect->postQuery($url, $this->vstore, $this->pquery, $this->internals);
                 }
                 echo "Http Redirected to $url\n";
             } else {
