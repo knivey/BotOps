@@ -66,10 +66,15 @@ class weather extends Module {
         if ($via == 'noaa') {
             $varz['weather'] = 'noaaRead';
         }
-
+        list($error, $gkey) = $this->pGetConfig('gkey');
+        if ($error) {
+            $this->pIrc->msg($varz['chan'], "\2Weather:\2 $error");
+            return;
+        }
+            
         if (isset($varz['weather'])) {
             $locHttp = new Http($this->pSockets, $this, 'wlocRead', $varz);
-            $locHttp->getQuery("http://maps.googleapis.com/maps/api/geocode/xml?address=" . urlencode(htmlentities($query)) . "&sensor=false", $varz);
+            $locHttp->getQuery("http://maps.googleapis.com/maps/api/geocode/xml?address=" . urlencode(htmlentities($query)) . "&sensor=false&key=$gkey", $varz);
         } else {
             $this->pIrc->msg($chan, "Weather has encountered a strange error, please contact #bots");
         }
