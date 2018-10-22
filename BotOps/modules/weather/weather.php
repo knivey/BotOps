@@ -66,7 +66,12 @@ class weather extends Module {
         if ($via == 'noaa') {
             $varz['weather'] = 'noaaRead';
         }
-        list($error, $gkey) = $this->pGetConfig('gkey');
+        /* list($error, $gkey) = $this->pGetConfig('gkey');
+        if ($error) {
+            $this->pIrc->msg($varz['chan'], "\2Weather:\2 $error");
+            return;
+        } */
+        list($error, $lkey) = $this->pGetConfig('lkey');
         if ($error) {
             $this->pIrc->msg($varz['chan'], "\2Weather:\2 $error");
             return;
@@ -75,7 +80,36 @@ class weather extends Module {
         if (!isset($varz['weather'])) {
             $this->pIrc->msg($chan, "Weather has encountered a strange error, please contact #bots");
         }
-        $ch = curl_init("https://maps.googleapis.com/maps/api/geocode/xml?address=" . urlencode(htmlentities($query)) . "&key=$gkey");
+        
+        
+        $ch = curl_init("https://us1.locationiq.org/v1/search.php?q=" . urlencode(htmlentities($query)) . "&format=json&key=$lkey");
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
+        $res = curl_exec($ch);
+        
+        if($res === FALSE) {
+            $this->pIrc->msg($chan, "\2Weather Error:\2 " . curl_error($ch));
+            curl_close($ch);
+            return;
+        }
+
+        $info = Array();
+        $w            = json_decode($res);
+        var_dump($w);
+        
+        if(!is_array($w)) {
+            $this->pIrc->msg($chan, "Weather was unable to find that location");
+            return;
+        }
+        
+        $info['name'] = $w[0]->display_name;
+        $long         = (float) $w[0]->lon;
+        $lat          = (float) $w[0]->lat;
+        
+        /*
+        
+        $ch = curl_init("https://maps.googleapis.com/maps/api/geocode/xml?address=" . urlencode(htmlentities($query)) . "&sensor=false&key=$gkey");
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
         curl_setopt($ch, CURLOPT_TIMEOUT, 10);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
@@ -100,10 +134,10 @@ class weather extends Module {
         $info['name'] = $w->result->formatted_address;
         $long         = (float) $w->result->geometry->location->lng;
         $lat          = (float) $w->result->geometry->location->lat;
+        */
         $info['long'] = $long;
         $info['lat']  = $lat;
         $varz['info'] = $info;
-
         $elat = urlencode($lat);
         $elng = urlencode($long);
 
