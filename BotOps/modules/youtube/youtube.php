@@ -36,7 +36,7 @@ class youtube extends Module {
         $res = curl_exec($ch);
         
         if($res === FALSE) {
-            $this->pIrc->msg($chan, "\2YouTube Error:\2 " . curl_errno($ch));
+            $this->pIrc->msg($chan, "\2YouTube Error:\2 " . curl_error($ch));
             curl_close($ch);
             return;
         }

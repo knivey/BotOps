@@ -71,24 +71,26 @@ class weather extends Module {
             $this->pIrc->msg($varz['chan'], "\2Weather:\2 $error");
             return;
         }
-            
-        if (isset($varz['weather'])) {
-            $locHttp = new Http($this->pSockets, $this, 'wlocRead', $varz);
-            $locHttp->getQuery("http://maps.googleapis.com/maps/api/geocode/xml?address=" . urlencode(htmlentities($query)) . "&sensor=false&key=$gkey", $varz);
-        } else {
+
+        if (!isset($varz['weather'])) {
             $this->pIrc->msg($chan, "Weather has encountered a strange error, please contact #bots");
         }
-    }
-
-    function wlocRead($body, $varz) {
-        if (is_array($body)) {
-            $this->pIrc->msg($varz['chan'], "\2Geolocation:\2 Error ($body[0]) $body[1]");
+        $ch = curl_init("https://maps.googleapis.com/maps/api/geocode/xml?address=" . urlencode(htmlentities($query)) . "&key=$gkey");
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
+        $res = curl_exec($ch);
+        
+        if($res === FALSE) {
+            $this->pIrc->msg($chan, "\2Weather Error:\2 " . curl_error($ch));
+            curl_close($ch);
             return;
         }
 
         $info = Array();
-        $w            = simplexml_load_string($body);
-        //var_dump($w);
+        var_dump($res);
+        $w            = simplexml_load_string($res);
+        var_dump($w);
         $info['name'] = $w->result->formatted_address;
         $long         = (float) $w->result->geometry->location->lng;
         $lat          = (float) $w->result->geometry->location->lat;
