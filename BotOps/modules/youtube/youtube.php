@@ -4,107 +4,74 @@ require_once('modules/Module.inc');
 require_once('Tools/Tools.php');
 
 class youtube extends Module {
-    function inmsg($nick, $target, $text) {
-	return;
-        $chanpref = $this->gM('SetReg')->getCSet('youtube', $target, 'scan');
+    var $URL = '/^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$/';
+    
+    function inmsg($nick, $chan, $text) {
+        $chanpref = $this->gM('SetReg')->getCSet('youtube', $chan, 'scan');
         if($chanpref != 'on') {
             return;
         }
-        $words = explode(' ', $text);
-        foreach($words as $w) {
-            $loc = strpos($w, 'http://youtube.com');
-            if ($loc !== FALSE) {
-                //i guess uhh... just load the page
-                $lol = new Http($this->pSockets, $this, 'yt');
-                $lol->getQuery($w, Array($nick, $target, false));
-            }
-            
-            $loc = strpos($w, 'http://www.youtube.com');
-            if ($loc !== FALSE) {
-                //i guess uhh... just load the page
-                $lol = new Http($this->pSockets, $this, 'yt');
-                $lol->getQuery($w, Array($nick, $target, false));
-            }
-            
-            $loc = strpos($w, 'http://youtu.be');
-            if ($loc !== FALSE) {
-                //i guess uhh... just load the page
-                $lol = new Http($this->pSockets, $this, 'yt');
-                $lol->getQuery($w, Array($nick, $target, false));
-            }
-            
-            $loc = strpos($w, 'https://youtube.com');
-            if ($loc !== FALSE) {
-                //i guess uhh... just load the page
-                $lol = new Http($this->pSockets, $this, 'yt');
-                $lol->getQuery($w, Array($nick, $target, false));
-            }
-            
-            $loc = strpos($w, 'https://www.youtube.com');
-            if ($loc !== FALSE) {
-                //i guess uhh... just load the page
-                $lol = new Http($this->pSockets, $this, 'yt');
-                $lol->getQuery($w, Array($nick, $target, false));
-            }
-            
-            $loc = strpos($w, 'https://youtu.be');
-            if ($loc !== FALSE) {
-                //i guess uhh... just load the page
-                $lol = new Http($this->pSockets, $this, 'yt');
-                $lol->getQuery($w, Array($nick, $target, false));
-            }
-            
-            $loc = strpos($w, 'http://tiny.cc');
-            if ($loc !== FALSE) {
-                //i guess uhh... just load the page
-                $lol = new Http($this->pSockets, $this, 'yt');
-                $lol->getQuery($w, Array($nick, $target, true));
-            }
-            
-            $loc = strpos($w, 'http://tinyurl.com');
-            if ($loc !== FALSE) {
-                //i guess uhh... just load the page
-                $lol = new Http($this->pSockets, $this, 'yt');
-                $lol->getQuery($w, Array($nick, $target, true));
-            }
-        }
-    }
-    
-    function yt($data, $x) {
-        list($nick, $chan, $tiny) = $x;
-        if(is_array($data)) {
-            if (!$tiny) {
-                $this->pIrc->msg($chan, "\2YouTube:\2 Error ($data[0]) $data[1]");
-            }
-            return;
-        }
-        $isyoutube = strpos($data, '<meta property="og:site_name" content="YouTube">');
-        if($isyoutube === FALSE) {
+        
+        if(!preg_match($this->URL, $text, $m)) {
             return;
         }
         
-        $startText = '<meta itemprop="name" content="';
-        $endText = '">';
-        $start = strpos($data, $startText) + strlen($startText);
-        $end = strpos($data, $endText, $start);
-        $title = substr($data, $start, $end - $start);
-        
-        $startText = '<meta itemprop="duration" content="';
-        $endText = '">';
-        $start = strpos($data, $startText) + strlen($startText);
-        $end = strpos($data, $endText, $start);
-        $duration = substr($data, $start, $end - $start);
-        $duration = strtolower(substr($duration, 2));
-        
-        $title = strip_tags(html_entity_decode($title));
-        $title = htmlspecialchars_decode($title, ENT_QUOTES);
-        $duration = strip_tags(html_entity_decode($duration));
-        
-        if(strlen($duration) > 15) {
+        if(!array_key_exists(5, $m)) {
             return;
         }
+       
+        $id = $m[5];
         
-        $this->pIrc->msg($chan, "\2[YouTube] Title:\2 $title \2Length:\2 $duration");
+        echo "Looking up youtube video $id\n";
+        
+        list($error, $key) = $this->pGetConfig('gkey');
+        if ($error) {
+            $this->pIrc->msg($chan, "\2YouTube Error:\2 $error");
+            return;
+        }
+        $ch = curl_init("https://www.googleapis.com/youtube/v3/videos?id=$id&part=snippet%2CcontentDetails%2Cstatistics&key=$key");
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
+        $res = curl_exec($ch);
+        
+        if($res === FALSE) {
+            $this->pIrc->msg($chan, "\2YouTube Error:\2 " . curl_errno($ch));
+            curl_close($ch);
+            return;
+        }
+
+        $data = json_decode($res);
+        if(!is_object($data)) {
+            $this->pIrc->msg($chan, "\2YouTube Error:\2 Unknown data received.");
+            curl_close($ch);
+            return;
+        }
+        try {
+            var_dump($data);
+            $v = $data->items[0];
+            $title = $v->snippet->title;
+
+            $start = new DateTime('@0'); // Unix epoch
+            $start->add(new DateInterval($v->contentDetails->duration));
+            $dur = $start->format('H:i:s');
+
+            $chanTitle = $v->snippet->channelTitle;
+            $date = date("M j, Y", strtotime($v->snippet->publishedAt));
+            $views = $v->statistics->viewCount;
+            $likes = $v->statistics->likeCount;
+            $hates = $v->statistics->dislikeCount;
+
+            $lead = "\2YouTube:\2";
+            if ($v->contentDetails->definition == 'hd') {
+                $lead = "\2YouTubeHD:\2";
+            }
+
+            $this->pIrc->msg($chan, "$lead $title \2Channel:\2 $chanTitle \2Length:\2 $dur \2Date:\2 $date \2Views:\2 $views \2+/-:\2 $likes\2/\2$hates");
+        } catch (Exception $e) {
+            $this->pIrc->msg($chan, "\2YouTube Error:\2 Unknown data received.");
+        }
+        curl_close($ch);
     }
 }
 
