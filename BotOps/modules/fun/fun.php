@@ -116,11 +116,6 @@ class fun extends Module {
         }
     }
 
-    public function cmd_google($nick, $target, $arg2) {
-        $lol = new Http($this->pSockets, $this, 'googleSearch');
-        $lol->getQuery("http://ajax.googleapis.com/ajax/services/search/web?v=1.0&q=" . urlencode(htmlentities($arg2)), $target);
-    }
-
     public function cmd_qball($nick, $target, $arg2) {
         try {
             $stmt = $this->pMysql->query("select * from qball order by rand() limit 1");
@@ -323,29 +318,6 @@ class fun extends Module {
         $quote     = htmlspecialchars_decode($quote, ENT_QUOTES);
 
         $this->pIrc->msg($target, "\2Bash(\2$num\2):\2 $quote");
-    }
-
-    public function googleSearch($data, $target) {
-        if (is_array($data)) {
-            $this->pIrc->msg($target, "\2Google:\2 Error ($data[0]) $data[1]");
-            return;
-        }
-
-        $crap = json_decode($data);
-
-        if (count($crap->responseData->results) == 0) {
-            $this->pIrc->msg($target, "\2Google Result:\2 No documents found.");
-            return;
-        }
-
-        $url   = urldecode($crap->responseData->results[0]->url);
-        $url   = str_replace(' ', '%20', $url);
-        $title = htmlspecialchars_decode($crap->responseData->results[0]->titleNoFormatting, ENT_QUOTES);
-        $desc  = htmlspecialchars_decode(strip_tags($crap->responseData->results[0]->content), ENT_QUOTES);
-        $desc  = str_replace("\n", '', $desc);
-        $num   = $crap->responseData->cursor->estimatedResultCount;
-
-        $this->pIrc->msg($target, "\2Google Results ($num total):\2  $url \2Title:\2 $title \2Content:\2 $desc");
     }
 
     public function cmd_ping($nick, $chan, $msg) {

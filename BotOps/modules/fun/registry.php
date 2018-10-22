@@ -11,7 +11,6 @@ class registry {
         'funcs' => Array(
             Array('fml', 'cmd_fml', "", "Random FML stories"),
             Array('fmll', 'cmd_fmll', "", "Random FML stories Long output"),
-            Array('google', 'cmd_google', "<query>", "Search google"),
             Array('ping', 'cmd_ping', "", "Ping/Pong"),
             Array('spell', 'cmd_spell', "<word>", "spellcheck"),
             Array('time', 'cmd_time', "", "Time"),
@@ -31,7 +30,6 @@ class registry {
         'binds' => Array(
             Array('fml', '0', 'fml', "", "", "", '0'),
             Array('fmll', '0', 'fmll', "", "", "", '0'),
-            Array('google', '0', 'google', "", "", "", '0'),
             Array('ping', '0', 'ping', "", "", "", '0'),
             Array('spell', '0', 'spell', "", "", "", '0'),
             Array('time', '0', 'time', "", "", "", '0'),
