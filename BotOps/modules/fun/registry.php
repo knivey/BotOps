@@ -26,6 +26,7 @@ class registry {
             Array('qballsearch', 'cmd_qballsearch', "*<search>*", "Show reponse IDs matching the search"),
             Array('qballinfo', 'cmd_qballinfo', "<id>", "Show info on the qball response ID"),
             Array('cal', 'cmd_cal', "", "Show a calendar"),
+            Array('search', 'cmd_search', "", "Search the net"),
         ),
         'binds' => Array(
             Array('fml', '0', 'fml', "", "", "", '0'),
@@ -45,6 +46,7 @@ class registry {
             Array('qballsearch', 'O', 'qballsearch', "", "", "", '0'),
             Array('qballinfo', 'O', 'qballinfo', "", "", "", '0'),
             Array('cal', '0', 'cal', "", "", "", '0'),
+            Array('search', '0', 'search', "", "", "", '0'),
         )
     );
 

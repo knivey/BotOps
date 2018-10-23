@@ -6,6 +6,102 @@ require_once('Http.inc');
 
 class fun extends Module {
 
+    public function cmd_search($nick, $chan, $msg) {
+        $srv = "\2Search:\2";
+        if($msg == '') {
+            $this->pIrc->msg($chan, "$srv You must provide a query.");
+        }
+        $this->yandex($chan, $msg);
+        $this->ddg($chan, $msg);
+    }
+    
+    public function ddg($chan, $msg) {
+        $srv = "\2DDG\2";
+        $ch = curl_init("https://duckduckgo.com/html/?q=" . urlencode(htmlentities($msg)));
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
+        $res = curl_exec($ch);
+
+        if($res === FALSE) {
+            $this->pIrc->msg($chan, "$srv Error: " . curl_error($ch));
+            curl_close($ch);
+            return;
+        }
+
+        var_dump($res);
+        
+        try {
+            $s = str_get_html($res);
+            if (empty($s->find('a[class=result__snippet]'))) {
+                throw new Exception('No results.');
+            }
+            $res = $s->find('a[class=result__snippet]')[0];
+            $url = str_replace('/l/?kh=-1&uddg=', '', html_entity_decode(urldecode($res->href))) . "\n";
+            $url = str_replace(' ', '%20', $url); //A little hack but what you gonna do
+            $blurb = htmlspecialchars_decode(html_entity_decode(strip_tags($res))) . "\n";
+            $url = str_replace("\n", '', $url);
+            $blurb = str_replace("\n", '', $blurb);
+            $this->pIrc->msg($chan, "$srv $url - $blurb");
+        } catch  (Exception $e) {
+            $this->pIrc->msg($chan, "$srv Error: Exception Raised: " . $e->getMessage());
+        }
+        curl_close($ch);
+    }
+    
+    public function yandex($chan, $msg) {
+        $srv = "\2Yandex:\2";
+        list($error, $key) = $this->pGetConfig('yandex_key');
+        if ($error) {
+            $this->pIrc->msg($chan, "$srv $error");
+            return;
+        }
+        
+        $ch = curl_init("https://yandex.com/search/xml?user=knivey&key=$key&query=" . urlencode(htmlentities($msg)) . "&l10n=en&sortby=rlv&filter=none&maxpassages=1&groupby=attr%3D%22%22.mode%3Dflat.groups-on-page%3D10.docs-in-group%3D1");
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
+        $res = curl_exec($ch);
+
+        if($res === FALSE) {
+            $this->pIrc->msg($chan, "$srv Error: " . curl_error($ch));
+            curl_close($ch);
+            return;
+        }
+
+        var_dump($res);
+        $r = simplexml_load_string($res);
+        var_dump($r);
+        
+        try {
+            if(property_exists($r->response, 'error')) {
+                $this->pIrc->msg($chan, "$srv Error: " . $r->response->error);
+                curl_close($ch);
+                return;
+            }
+            $resNum = $r->response->{'found-human'};
+            $rr = $r->response->results->grouping->group[0];
+            $url = $rr->doc->url;
+            $blurb = "N/A";
+            if(property_exists($rr->doc, 'headline')) {
+                $blurb = strip_tags($rr->doc->headline->asXML());
+            } else {
+                if(property_exists($rr->doc, 'passages')) {
+                    if(is_array($rr->doc->passages->passage)) {
+                        $blurb = strip_tags($rr->doc->passages->passage[0]->asXML());
+                    } else {
+                        $blurb = strip_tags($rr->doc->passages->passage->asXML());
+                    }
+                }
+            }
+            $this->pIrc->msg($chan, "$srv ($resNum results) $url - $blurb");
+        } catch (Exception $e) {
+            $this->pIrc->msg($chan, "$srv Error: Exception Raised: " . $e->getMessage());
+        }
+        curl_close($ch);
+    }
+
     public function cmd_cal($nick, $chan, $msg)
     {
         $cal = trim(`cal --color=always`);
