@@ -16,7 +16,7 @@ class fun extends Module {
     }
     
     public function ddg($chan, $msg) {
-        $srv = "\2DDG\2";
+        $srv = "\2DDG:\2";
         $ch = curl_init("https://duckduckgo.com/html/?q=" . urlencode(htmlentities($msg)));
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
         curl_setopt($ch, CURLOPT_TIMEOUT, 5);
@@ -95,7 +95,7 @@ class fun extends Module {
                     }
                 }
             }
-            $this->pIrc->msg($chan, "$srv ($resNum results) $url - $blurb");
+            $this->pIrc->msg($chan, "$srv ($resNum) $url - $blurb");
         } catch (Exception $e) {
             $this->pIrc->msg($chan, "$srv Error: Exception Raised: " . $e->getMessage());
         }

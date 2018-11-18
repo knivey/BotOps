@@ -5,26 +5,36 @@ require_once('Tools/Tools.php');
 
 class youtube extends Module {
     var $URL = '/^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$/';
-    
+
     function inmsg($nick, $chan, $text) {
         $chanpref = $this->gM('SetReg')->getCSet('youtube', $chan, 'scan');
         if($chanpref != 'on') {
             return;
         }
-        
+
         foreach(explode(' ', $text) as $word) {
             if(!preg_match($this->URL, $word, $m)) {
                 continue;
             }
-            
+
             if(!array_key_exists(5, $m)) {
                 continue;
             }
-        
+
             $id = $m[5];
-            
+            // Get this with https://www.youtube.com/watch?time_continue=165&v=Bfdy5a_R4K4
+            if($id == "watch") {
+                $url = parse_url($word, PHP_URL_QUERY);
+                foreach(explode('&', $url) as $p) {
+                    list($lhs, $rhs) = explode('=', $p);
+                    if ($lhs == 'v') {
+                        $id = $rhs;
+                    }
+                }
+            }
+
             echo "Looking up youtube video $id\n";
-            
+
             list($error, $key) = $this->pGetConfig('gkey');
             if ($error) {
                 $this->pIrc->msg($chan, "\2YouTube Error:\2 $error");
@@ -35,7 +45,7 @@ class youtube extends Module {
             curl_setopt($ch, CURLOPT_TIMEOUT, 10);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
             $res = curl_exec($ch);
-            
+
             if($res === FALSE) {
                 $this->pIrc->msg($chan, "\2YouTube Error:\2 " . curl_error($ch));
                 curl_close($ch);
@@ -68,7 +78,7 @@ class youtube extends Module {
                     $lead = "\2YouTubeHD:\2";
                 }
 
-                $this->pIrc->msg($chan, "$lead $title \2Channel:\2 $chanTitle \2Length:\2 $dur \2Date:\2 $date \2Views:\2 $views \2+/-:\2 $likes\2/\2$hates");
+                $this->pIrc->msg($chan, "$lead $title \2Channel:\2 $chanTitle \2Length:\2 $dur \2Date:\2 $date \2Views:\2 $views ▲ $likes ▼ $hates");
             } catch (Exception $e) {
                 $this->pIrc->msg($chan, "\2YouTube Error:\2 Unknown data received.");
             }

@@ -47,6 +47,7 @@ class registry {
             Array('qballinfo', 'O', 'qballinfo', "", "", "", '0'),
             Array('cal', '0', 'cal', "", "", "", '0'),
             Array('search', '0', 'search', "", "", "", '0'),
+            Array('google', '0', 'search', "", "", "", '0'),
         )
     );
 
