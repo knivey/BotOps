@@ -68,16 +68,16 @@ class wolfram extends Module {
         $outtatime = $xml['parsetimedout'];
         //we didn't have tips? try didyoumean
         if($res == '') {
-            $res = 'Error: does not compute. Did you mean: ' . $xml->didyoumeans->didyoumean[0];
+            $res = "\2WolframAlpha:\2 No results for query, Did you mean: " . $xml->didyoumeans->didyoumean[0];
         }
         
         if($outtatime != 'false') {
-            $res = "Error: not enough time to parse query.";
+            $res = "\2WolframAlpha:\2 Error, query took too long to parse.";
         }
         
         //I beleive this is for $var compatibility
         if (!is_array($target)) {
-            $this->pIrc->msg($target, "\2WolframAlpha:\2 $res \2(ParseTime:\2 $parsetime\2)");
+            $this->pIrc->msg($target, "\2WolframAlpha:\2 $res");
         } else {
             $c = $target['cbClass'];
             $f = $target['cbFunc'];
