@@ -52,7 +52,8 @@ class weather extends Module {
 
         list($err, $dkey) = $this->pGetConfig('darksky_key');
         if ($err) {
-            return Array($err, 0, 0);
+            $this->pIrc->msg($chan, "\2Weather Error (Darksky):\2 Config missing key");
+            return;
         }
 
         $ch  = curl_init("https://api.darksky.net/forecast/$dkey/$lat,$lon?exclude=minutely,hourly&units=$units");
