@@ -1,0 +1,18 @@
+make weather able to lookup *user or @nick
+have option to just start all bots in leaf.php instead of naming them.
+use unix sockets for local connetions, or direct function if in same proc.
+test script for php extensions that we need
+make first time install scripts and per module support on it, ability to install modules exclusively
+https://ne-on.org/ for configs?
+ability to use sqlite, or run without db? try to get the core things away from all that
+update for php7
+users auth, have it just recognize by authserv username, hardly anyone renames their account, make this a separate module and have a selection?
+
+
+have botops join all channels automatically, part if bot is alone for 5min set time of parting in db for data expiration
+with new user system give channel ops (+o) access to all chan commands, gamesurge staff access to all staff commands
+but restrict access to authed users, create accounts based on AS username for user settings etc, have lastseen time
+occasionally AS info all the users and expire deleted ones.
+before the bot joins newly created channel seen from /list changes, make sure it still exists.
+when banned do normal rejoin trys 3 times then mute attempts and slow the rejoins to once an hour, notify when rejoined.
+
