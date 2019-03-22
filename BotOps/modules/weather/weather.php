@@ -7,25 +7,25 @@ class weather extends Module {
     public $units = Array(
         'si'  => Array(
             'windSpeed' => 'm/s',
-            'temp'      => '°C',
+            'temp'      => "C",
             'pressure'  => 'hPa',
             'vis'       => 'km'
         ),
         'us'  => Array(
             'windSpeed' => 'mph',
-            'temp'      => '°F',
+            'temp'      => "F",
             'pressure'  => 'mbar',
             'vis'       => 'miles'
         ),
         'ca'  => Array(
             'windSpeed' => 'kph',
-            'temp'      => '°C',
+            'temp'      => "C",
             'pressure'  => 'hPa',
             'vis'       => 'km'
         ),
         'uk2' => Array(
             'windSpeed' => 'mph',
-            'temp'      => '°C',
+            'temp'      => "C",
             'pressure'  => 'hPa',
             'vis'       => 'miles'
         )
@@ -68,7 +68,7 @@ class weather extends Module {
             return;
         }
         $w = json_decode($res, true);
-        if(!$w || @$w['error']) {
+        if (!$w || @$w['error']) {
             $this->pIrc->msg($chan, "\2Weather Error (Darksky):\2 " . @!$w ? 'Unknown Data' : $w['error']);
             return;
         }
@@ -79,26 +79,29 @@ class weather extends Module {
             $this->pIrc->msg($chan, "\2Weather Error (Timezone):\2 $err");
             return;
         }
+        $c = $w['currently'];
+        
+        $units = $w['flags']['units'];
 
-        $cond      = @$w['currently']['summary'];
-        if ($windSpeed = @$w['currently']['windSpeed']) {
-            $windDir = $this->windArrow($w['currently']['windBearing']);
+        $cond      = @$c['summary'];
+        if ($windSpeed = @$c['windSpeed']) {
+            $windDir = $this->windDir($c['windBearing']);
         } else {
             $windDir = '*';
         }
         $windSpeed .= $this->units[$units]['windSpeed'];
-        if ($windGust  = @$w['currently']['windGust']) {
-            $windSpeed .= "($windGust" . $this->units[$units]['windSpeed'] . ' Gusts)';
+        if ($windGust  = @$c['windGust']) {
+            $windSpeed .= " ($windGust" . $this->units[$units]['windSpeed'] . ' Gusts)';
         }
-        if ($feelslike = @$w['currently']['apparentTemperature']) {
+        if ($feelslike = (string) @$c['apparentTemperature']) {
             $feelslike .= $this->units[$units]['temp'];
         }
-        $temp = @$w['currently']['temperature'] . $this->units[$units]['temp'];
+        $temp = @$c['temperature'] . $this->units[$units]['temp'];
         if ($feelslike != $temp && $feelslike) {
             $temp = "$temp (Feels Like $feelslike)";
         }
-        $humd       = @$w['currently']['humidity'];
-        ($cloudCover = @$w['currently']['cloudCover']) ? $cloudCover = $cloudCover * 100 . '%' : $cloudCover = '0%';
+        ($humd       = @$c['humidity']) ? $humd       = $humd * 100 . '%' : $humd       = '0%';
+        ($cloudCover = @$c['cloudCover']) ? $cloudCover = $cloudCover * 100 . '%' : $cloudCover = '0%';
 
         $fc = '';
 
@@ -107,25 +110,25 @@ class weather extends Module {
             if (++$max == 4) {
                 break;
             }
-            $out = '';
-            $dt = DateTime('@' . $f['time']);
+            $out    = '';
+            $dt     = new DateTime('@' . $f['time']);
             $dt->setTimeZone(new DateTimeZone($tz));
-            $day = $dt->format('%D');
-            $fcond = $f['summary'];
+            $day    = $dt->format('D');
+            $fcond  = $f['summary'];
             $ftempH = $f['temperatureHigh'] . $this->units[$units]['temp'];
             $ftempL = $f['temperatureLow'] . $this->units[$units]['temp'];
-            $out .= "\2$day:\2 $fcond $ftempH/$ftempL ";
-            if (array_key_exist('precipType', $f)) {
-                $out .= $f['precipProbability'] * 100 . "% chance " . $f['precipType'] . ' ';
+            $out    .= "\2[$day]\2 $fcond $ftempH/$ftempL ";
+            if (array_key_exists('precipType', $f)) {
+                $out .= 'With a ' . $f['precipProbability'] * 100 . "% chance of " . $f['precipType'] . ' ';
             }
             if ($f['windSpeed'] != 0) {
-                $out .= $this->windArrow($f['windBearing']) . ' ';
+                $out .= 'Wind: ' . $this->windDir($f['windBearing']) . ' @ ';
                 $out .= $f['windSpeed'] . $this->units[$units]['windSpeed'] . ' ';
             }
             $fc .= $out;
         }
 
-        $this->pIrc->msg($chan, "\2(\2$location\2)\2 $timenow $tz \21Currently:\2 $cond $cloudCover Cloud Cover $temp \2Humidity:\2 $humd \2Wind:\2 $windDir $windSpeed \2Sunrise:\2 $sunrise \2Sunset:\2 $sunset");
+        $this->pIrc->msg($chan, "\2(\2$location\2)\2 $timenow \2Currently:\2 $cond, $cloudCover Cloud Cover $temp \2Humidity:\2 $humd \2Wind:\2 $windDir @ $windSpeed \2Sunrise:\2 $sunrise \2Sunset:\2 $sunset");
         $this->pIrc->msg($chan, "\2(\2Forecast\2)\2 $fc");
     }
 
@@ -173,7 +176,7 @@ class weather extends Module {
             return Array("DateTime Exception " . $e->getMessage(), '');
         }
 
-        return Array(false, $si[sunrise], $si[sunset], $timeNow);
+        return Array(false, $si['sunrise'], $si['sunset'], $timeNow);
     }
 
     function getUnits($hand, &$arg2) {
@@ -199,9 +202,12 @@ class weather extends Module {
         return $units;
     }
 
-    function windArrow($bearing) {
-        $idx = (int) ((($bearing % 360) - 22.5) / 45);
-        return '↑↗→↘↓↙←↖'[$idx];
+    function windDir($bearing) {
+        //$arrows = '↑↗→↘↓↙←↖';
+        //For some reason I'm having trouble with unicode charaters -_-
+        $arrows = Array('N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW');
+        $idx    = (int) ((($bearing % 360) - 22.5) / 45);
+        return $arrows[$idx];
     }
 
 }
