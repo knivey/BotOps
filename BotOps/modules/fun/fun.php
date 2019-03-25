@@ -7,16 +7,20 @@ require_once('Http.inc');
 class fun extends Module {
 
     public function cmd_search($nick, $chan, $msg) {
-        $srv = "\2Search:\2";
         if($msg == '') {
-            $this->pIrc->msg($chan, "$srv You must provide a query.");
+            $this->pIrc->msg($chan, "\2Search:\2 You must provide a query.");
+            return;
         }
-        $this->yandex($chan, $msg);
-        $this->ddg($chan, $msg);
+        $this->cmd_yandex($chan, $msg);
+        $this->cmd_ddg($chan, $msg);
     }
     
-    public function ddg($chan, $msg) {
+    public function cmd_ddg($nick, $chan, $msg) {
         $srv = "\2DDG:\2";
+        if($msg == '') {
+            $this->pIrc->msg($chan, "$srv You must provide a query.");
+            return;
+        }
         $ch = curl_init("https://duckduckgo.com/html/?q=" . urlencode(htmlentities($msg)));
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
         curl_setopt($ch, CURLOPT_TIMEOUT, 5);
@@ -50,8 +54,12 @@ class fun extends Module {
         curl_close($ch);
     }
     
-    public function yandex($chan, $msg) {
+    public function cmd_yandex($nick, $chan, $msg) {
         $srv = "\2Yandex:\2";
+        if($msg == '') {
+            $this->pIrc->msg($chan, "$srv You must provide a query.");
+            return;
+        }
         list($error, $key) = $this->pGetConfig('yandex_key');
         if ($error) {
             $this->pIrc->msg($chan, "$srv $error");
