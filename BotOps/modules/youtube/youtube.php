@@ -63,22 +63,25 @@ class youtube extends Module {
                 $v = $data->items[0];
                 $title = $v->snippet->title;
 
-                $start = new DateTime('@0'); // Unix epoch
-                $start->add(new DateInterval($v->contentDetails->duration));
-                $dur = $start->format('H:i:s');
+                $di = new DateInterval($v->contentDetails->duration);
+                $dur = $di->format('%hh %im %ss');
 
                 $chanTitle = $v->snippet->channelTitle;
-                $date = date("M j, Y", strtotime($v->snippet->publishedAt));
-                $views = $v->statistics->viewCount;
-                $likes = $v->statistics->likeCount;
-                $hates = $v->statistics->dislikeCount;
+                $datef = $this->gM('SetReg')->getCSet('youtube', $chan, 'date');
+                $date = date($datef, strtotime($v->snippet->publishedAt));
+                $views = number_format($v->statistics->viewCount);
+                $likes = number_format($v->statistics->likeCount);
+                $hates = number_format($v->statistics->dislikeCount);
 
-                $lead = "\2YouTube:\2";
+                $lead = "YouTube";
                 if ($v->contentDetails->definition == 'hd') {
-                    $lead = "\2YouTubeHD:\2";
+                    $lead = "YouTubeHD";
                 }
+                $patterns = Array('/\$yt/', '/\$title/', '/\$channel/', '/\$length/', '/\$date/', '/\$views/', '/\$likes/', '/\$hates/');
+                $replaces = Array($lead, $title, $chanTitle, $dur, $date, $views, $likes, $hates);
+                $theme = $this->gM('SetReg')->getCSet('youtube', $chan, 'theme');
 
-                $this->pIrc->msg($chan, "$lead $title \2Channel:\2 $chanTitle \2Length:\2 $dur \2Date:\2 $date \2Views:\2 $views ▲ $likes ▼ $hates");
+                $this->pIrc->msg($chan, preg_replace($patterns, $replaces, $theme));
             } catch (Exception $e) {
                 $this->pIrc->msg($chan, "\2YouTube Error:\2 Unknown data received.");
             }
