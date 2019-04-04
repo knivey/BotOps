@@ -269,6 +269,12 @@
             $this->gM('channel')->chgSet($chan, 'SetReg', 'sets', $sets);
             $this->pIrc->notice($nick, "Setting $module $setting updated!");
             return $rv;
+        } elseif($args == "*") {
+            $sets = $this->gM('channel')->getSet($chan, 'SetReg', 'sets');
+            $sets[$module][$setting] = $this->channelSets[$module][$setting]['default'];
+            $this->gM('channel')->chgSet($chan, 'SetReg', 'sets', $sets);
+            $this->pIrc->notice($nick, "Setting $module $setting updated!");
+            return $rv;
         } else {
             $opts = '';
             foreach ($this->channelSets[$module][$setting]['options'] as $o) {
