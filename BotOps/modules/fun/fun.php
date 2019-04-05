@@ -44,7 +44,7 @@ class fun extends Module {
             $res = $s->find('a[class=result__snippet]')[0];
             $url = str_replace('/l/?kh=-1&uddg=', '', html_entity_decode(urldecode($res->href))) . "\n";
             $url = str_replace(' ', '%20', $url); //A little hack but what you gonna do
-            $blurb = htmlspecialchars_decode(html_entity_decode(strip_tags($res))) . "\n";
+            $blurb = htmlspecialchars_decode(html_entity_decode(strip_tags($res), ENT_QUOTES)) . "\n";
             $url = str_replace("\n", '', $url);
             $blurb = str_replace("\n", '', $blurb);
             $this->pIrc->msg($chan, "$srv $url - $blurb");
