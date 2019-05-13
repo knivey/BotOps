@@ -72,6 +72,12 @@ class test extends Module {
         $cpu_mhz = trim($cpu_mhz[1]);
         $cpu_mhz = preg_replace('/\s+/', ' ', $cpu_mhz);
         
+        $cpu_cores = `grep "cpu cores" /proc/cpuinfo`;
+        $cpu_cores = explode("\n", $cpu_cores);
+        $cpu_cores = explode(':', $cpu_cores[0]);
+        $cpu_cores = trim($cpu_cores[1]);
+        $cpu_cores = preg_replace('/\s+/', ' ', $cpu_cores);
+        
         $proc_num = trim(`ps ax | wc -l`) - 1;
         $uptime = explode(' ', trim(`cat /proc/uptime`));
         $uptime = Duration_toString($uptime[0]);
@@ -89,9 +95,8 @@ class test extends Module {
         $mem_used = $mem_used + 0;
         $mem_total = $m['MemTotal'] * 1024;
         $mem_total = convert($mem_total);
-        $df = explode("\n", `df`);
-        $pat = '/(?P<dev>[^ ]+) *(?P<tot>[0-9]+) *(?P<used>[0-9]+) *(?P<free>[0-9]+) '.
-                '*(?P<per>[0-9]+\%) *(?P<mount>.+)/';
+        $df = explode("\n", `df /`);
+        $pat = '/^.+ +(?P<tot>[0-9]+) +(?P<used>[0-9]+) +(?P<free>[0-9]+) +(?P<per>[0-9]+\%) +.+$/';
         preg_match($pat, $df[1], $matches);
         $df = convert($matches['used'] * 1024) .'/'. convert($matches['tot'] * 1024) . " ($matches[per])" ;
         
