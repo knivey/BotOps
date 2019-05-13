@@ -354,14 +354,14 @@ class CmdReg extends Module {
         $hflags = $this->gM('user')->flags($hand);
         $chan = strtolower($target);
         $access = $this->gM('user')->access($hand, $chan);
-        if(empty($arg[1])) {
-            return $this->rV['BADARGS'];
-        }
         $via = strtolower($arg[0]);
         if($via != 'pm' && $via != 'chan') {
             $bind = $via;
             $via = 'chan';
         } else {
+            if(empty($arg[1])) {
+                return $this->rV['BADARGS'];
+            }
             $bind = strtolower($arg[1]);
         }
         if(!$this->IsBound($via, $bind)) {
