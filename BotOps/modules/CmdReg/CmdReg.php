@@ -359,9 +359,11 @@ class CmdReg extends Module {
         }
         $via = strtolower($arg[0]);
         if($via != 'pm' && $via != 'chan') {
-            return $this->rV['BADARGS'];
+            $bind = $via;
+            $via = 'chan';
+        } else {
+            $bind = strtolower($arg[1]);
         }
-        $bind = strtolower($arg[1]);
         if(!$this->IsBound($via, $bind)) {
             $this->pIrc->notice($nick, "Command binding: $via $bind not found.");
             return $this->rV['ERROR'];
