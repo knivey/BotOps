@@ -11,8 +11,7 @@ class fun extends Module {
             $this->pIrc->msg($chan, "\2Search:\2 You must provide a query.");
             return;
         }
-        $this->cmd_yandex($chan, $msg);
-        $this->cmd_ddg($chan, $msg);
+        $this->cmd_ddg($nick, $chan, $msg);
     }
     
     public function cmd_ddg($nick, $chan, $msg) {
