@@ -344,11 +344,6 @@ class fun extends Module {
         }
     }
 
-    public function cmd_mlib($nick, $target, $arg2) {
-        $lol = new Http($this->pSockets, $this, 'mlib');
-        $lol->getQuery("http://mylifeisbro.com/random", $target);
-    }
-
     public function cmd_txts($nick, $target, $arg2) {
         $lol = new Http($this->pSockets, $this, 'txts');
         $lol->getQuery("http://www.textsfromlastnight.com/Random-Texts-From-Last-Night.html", $target);
@@ -375,27 +370,6 @@ class fun extends Module {
         $res = $res[1];
 
         $this->pIrc->msg($target, "\2TEXTS:\2 $res");
-    }
-
-    public function mlib($data, $target) {
-        if (is_array($data)) {
-            $this->pIrc->msg($target, "\2MLIB:\2 Error ($data[0]) $data[1]");
-            return;
-        }
-
-        $startText = '<p>';
-        $endText   = '</p>';
-        $start     = strpos($data, $startText) + strlen($startText);
-        $end       = strpos($data, $endText, $start);
-        $res       = substr($data, $start, $end - $start);
-        $res       = html_entity_decode($res, ENT_QUOTES | ENT_HTML401, 'cp1251');
-
-        $htmlEnts = Array('&#8230;', "\r", "\n");
-        $htmlOuts = Array('…', ' ', ' ');
-
-        $res = str_replace($htmlEnts, $htmlOuts, strip_tags($res));
-
-        $this->pIrc->msg($target, "\2MLIB:\2 $res");
     }
 
     public function bash($data, $target) {
