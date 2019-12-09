@@ -335,13 +335,64 @@ class fun extends Module {
         }
     }
 
-    public function cmd_bash($nick, $target, $arg2) {
-        $lol = new Http($this->pSockets, $this, 'bash');
-        if ($arg2 == '') {
-            $lol->getQuery("http://www.bash.org/?random", $target);
-        } else {
-            $lol->getQuery("http://www.bash.org/?$arg2", $target);
+    var $bashdb = Array();
+
+    public function cmd_bash($nick, $chan, $arg2)
+    {
+        if (empty($this->bashdb)) {
+            $res = $this->popBash();
+            if ($res) {
+                $this->pIrc->msg($chan, $res);
+                return;
+            }
         }
+        $id = array_rand($this->bashdb);
+        $quote = $this->bashdb[$id];
+        unset($this->bashdb[$id]);
+        $this->pIrc->msg($chan, "\2Bash(\2$id\2):\2 $quote");
+    }
+
+    public function popBash() {
+        $ch = curl_init("http://www.bash.org/?random");
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
+        $res = curl_exec($ch);
+
+        if($res === FALSE) {
+            $err = "\2Bash.org Error:\2 " . curl_error($ch);
+            curl_close($ch);
+            return $err;
+        }
+
+        $html = str_get_html($res);
+        $ids = Array();
+        $quotes = Array();
+
+        foreach($html->find("p.quote") as $i) {
+            $ids[] = $i->find("a", 0)->plaintext;
+        }
+
+        foreach($html->find("p.qt") as $i) {
+            $quote = $i->innertext;
+            $quote = str_replace('<br />', ' |', $quote);
+            $quote = str_replace("\n", '', $quote);
+            $quote = str_replace("\r", '', $quote);
+            $quote = htmlspecialchars_decode($quote, ENT_QUOTES | ENT_HTML5);
+            $quotes[] = $quote;
+        }
+        $db = array_combine($ids, $quotes);
+        foreach ($db as $k => $v) {
+            if (strlen($v) > 800) {
+                unset($db[$k]);
+            }
+        }
+        if (count($db) == 0) {
+            curl_close($ch);
+            return "\2Bash.org Error:\2 Couldn't find suitable quotes";;
+        }
+        $this->bashdb = $db;
+        curl_close($ch);
     }
 
     public function cmd_txts($nick, $target, $arg2) {
@@ -370,31 +421,6 @@ class fun extends Module {
         $res = $res[1];
 
         $this->pIrc->msg($target, "\2TEXTS:\2 $res");
-    }
-
-    public function bash($data, $target) {
-        if (is_array($data)) {
-            $this->pIrc->msg($target, "\2Bash:\2 Error ($data[0]) $data[1]");
-            return;
-        }
-
-        $startText = '<p class="quote"><a href="?';
-        $endText   = '" title';
-        $start     = strpos($data, $startText) + strlen($startText);
-        $end       = strpos($data, $endText, $start);
-        $num       = substr($data, $start, $end - $start);
-
-        $startText = '<p class="qt">';
-        $endText   = '</p>';
-        $start     = strpos($data, $startText) + strlen($startText);
-        $end       = strpos($data, $endText, $start);
-        $quote     = substr($data, $start, $end - $start);
-        $quote     = str_replace('<br />', ' | ', $quote);
-        $quote     = str_replace("\n", '', $quote);
-        $quote     = str_replace("\r", '', $quote);
-        $quote     = htmlspecialchars_decode($quote, ENT_QUOTES);
-
-        $this->pIrc->msg($target, "\2Bash(\2$num\2):\2 $quote");
     }
 
     public function cmd_ping($nick, $chan, $msg) {
