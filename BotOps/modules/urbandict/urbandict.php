@@ -18,59 +18,30 @@ class urbandict extends Module
             return $this->BADARGS;
         }
 
-        $lol = new Http($this->pSockets, $this, 'ud');
-        $lol->getQuery('http://www.urbandictionary.com/define.php?term=' . urlencode(htmlentities($msg)),
-                                                                                                  $chan);
-    }
+        $doc = file_get_html('http://www.urbandictionary.com/define.php?term=' . urlencode(htmlentities($msg)));
 
-    function ud($data, $chan)
-    {
-        if (is_array($data)) {
-            $this->pIrc->msg($chan,
-                             "\2UrbanDictionary:\2 Error ($data[0]) $data[1]");
-            return;
+        if ($doc === false) {
+            goto fuckoff;
         }
 
-        if (strpos($data, "</i> isn't defined ") !== FALSE) {
-            $this->pIrc->msg($chan,
-                             "\2UrbanDict:\2 Your query hasn't been defined yet.",
-                             1, 1);
-            return;
+        if (strpos($doc->plaintext, "Sorry, we couldn't find: ") !== FALSE &&
+            strpos($doc->plaintext, "There are no definitions for this word.") !== FALSE) {
+            goto fuckoff;
         }
-
-        $doc = str_get_html($data);
 
         $word = @$doc->find('a.word')[0]->plaintext;
 
         if (!$word) {
-            $this->pIrc->msg($chan,
-                             "\2UrbanDict:\2 Your query hasn't been defined yet.",
-                             1, 1);
-            return;
+            goto fuckoff;
         }
 
         $by       = $doc->find('div.contributor')[0]->plaintext;
         $meaning  = $doc->find('div.meaning')[0]->plaintext;
         $example  = $doc->find('div.example')[0]->plaintext;
-        $relatedA = $doc->find('ul.no-bullet>.tag');
-
-        $meaning = html_entity_decode($meaning, ENT_QUOTES);
-        $example = html_entity_decode($example, ENT_QUOTES);
-        $word    = html_entity_decode($word, ENT_QUOTES);
-        $by      = html_entity_decode($by, ENT_QUOTES);
-
-        $related = Array();
-        $cnt     = 0;
-        foreach ($relatedA as $e) {
-            $related[] = trim(html_entity_decode($e->plaintext, ENT_QUOTES));
-            $cnt++;
-            if ($cnt > 5) {
-                break;
-            }
-        }
-        $related = implode(", ", $related);
-
-        $related = html_entity_decode($related, ENT_QUOTES);
+        $meaning = html_entity_decode($meaning, ENT_QUOTES | ENT_HTML5);
+        $example = html_entity_decode($example, ENT_QUOTES | ENT_HTML5);
+        $word    = html_entity_decode($word, ENT_QUOTES | ENT_HTML5);
+        $by      = html_entity_decode($by, ENT_QUOTES | ENT_HTML5);
 
         $by = preg_replace("/^ by/", "\2By:\2", $by);
 
@@ -87,9 +58,13 @@ class urbandict extends Module
         }
         $example = implode(' | ', $example);
 
-        $this->pIrc->msg($chan, "\2UrbanDict:\2 $word $by \2Related:\2 $related", 1, 1);
+        $this->pIrc->msg($chan, "\2UrbanDict:\2 $word $by", 1, 1);
         $this->pIrc->msg($chan, "\2Meaning:\2 $meaning", 1, 1);
         $this->pIrc->msg($chan, "\2Example:\2 $example", 1, 1);
+        return;
+
+        fuckoff:
+        $this->pIrc->msg($chan,"\2UrbanDictionary:\2 Site dead or nothing found :(");
     }
 
 }
