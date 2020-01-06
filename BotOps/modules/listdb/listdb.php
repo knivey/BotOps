@@ -94,10 +94,10 @@ class listdb extends Module {
                 }
             }
             if (!empty($this->newchans) && !$this->init) {
-                $this->pIrc->msg('#botstaff,#pandabears', "(" . count($this->newchans) . ") new chans " . implode(' ', $this->newchans));
+                $this->pIrc->msg('#h4x', "(" . count($this->newchans) . ") new chans " . implode(' ', $this->newchans));
             }
             if (!empty($this->deadchans) && !$this->init) {
-                $this->pIrc->msg('#botstaff,#pandabears', "(" . count($this->deadchans) . ") removed chans " . implode(' ', $this->deadchans));
+                $this->pIrc->msg('#h4x', "(" . count($this->deadchans) . ") removed chans " . implode(' ', $this->deadchans));
             }
         }
         $this->deadchans = Array();

@@ -449,27 +449,6 @@ class fun extends Module {
         $this->pIrc->msg($chan, "For the time look at a clock.");
     }
 
-    public function cmd_reddit($nick, $chan, $arg2) {
-        $lol = new Http($this->pSockets, $this, 'redditRead');
-        $lol->getQuery("http://xml.reddit.com/r/all/", $chan);
-    }
-
-    public function redditRead($data, $chan) {
-        if (is_array($data)) {
-            $this->pIrc->msg($chan, "\2Reddit:\2 Error ($data[0]) $data[1]");
-            return;
-        }
-
-        $xml   = simplexml_load_string($data);
-        $items = $xml->channel->item;
-
-        for ($i = 0; $i < 5; $i++) {
-            $t = $items[$i]->title;
-            $l = $items[$i]->link;
-            $this->pIrc->msg($chan, "\2Reddit:\2 $t - $l");
-        }
-    }
-
 }
 
 ?>
