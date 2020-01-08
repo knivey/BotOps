@@ -60,7 +60,7 @@ class Module
     public $pMM;
 
     /**
-     * Configuration file info
+     * Configuration file section for this module
      * @var Array $pCInfo
      */
     public $pCInfo;
@@ -126,22 +126,12 @@ class Module
      * @param string $name
      * @return multitype:string mixed
      */
-    public function pGetConfig($name)
+    public function pGetConfig(string $name): array
     {
-        if ($this->pCInfo == null || !is_array($this->pCInfo)) {
-            return Array('Invalid Config', null);
+        if (!isset($this->pCInfo[$name])) {
+            return Array('Config item "'. $name .'" not found', null);
         }
-        $key = get_akey_nc($name, $this->pCInfo);
-        if ($key == null) {
-            return Array('Config item not found', null);
-        }
-        $r = null;
-        if (count($this->pCInfo[$key]) == 1) {
-            $r = $this->pCInfo[$key][0];
-        } else {
-            $r = $this->pCInfo[$key];
-        }
-        return Array(null, $r);
+        return Array(null, $this->pCInfo[$name]);
     }
 
     public function reportPDO($e, $nick = NULL)

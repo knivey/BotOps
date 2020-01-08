@@ -557,6 +557,7 @@ class admin extends Module {
             $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
             echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
             $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            return $this->ERROR;
         }
         $name = $argv[0];
         if($this->botExists($name) !== false) {

@@ -127,12 +127,6 @@ class Irc {
     public $usermodes;
     
     /**
-     * 
-     * @var unknown
-     */
-    public $bncuser;
-    
-    /**
      * Name of network received by 005 
      * @var unknown
      */

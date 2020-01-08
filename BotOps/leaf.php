@@ -83,7 +83,6 @@ function allquit($message) {
     }
 }
 
-include_once 'Config.inc';
 include_once 'Sockets.inc';
 include_once 'IRC/Irc.inc';
 include_once 'modules/ModuleManager.inc';
@@ -91,30 +90,48 @@ include_once 'HttpServ.php';
 include_once 'Tools/Duration.inc';
 include_once 'Tools/OAuth.php';
 include_once 'Tools/twitteroauth.php';
-
-$bots = Array();
-
-$usage = "Usage php leaf.php <botnick1> [botnick2]...
-    Config file is always main.conf most options are in mysql
-    If no botnicks are givin starts all active bots.\n";
+require __DIR__ . '/vendor/autoload.php';
+use Nette\Neon\Neon;
 
 //500 000 microseconds = 0.5 seconds
 $sockets = new Sockets(0, 800000);
 
-$config     = new Config('main.conf');
-$cInfo      = $config->getInfo();
+/*
+ * Load the config file
+ */
+$configFile = file_get_contents("main.conf");
+if($configFile === false) {
+    die("Please make a main.conf first\n");
+}
+try {
+    $config = Neon::decode($configFile);
+} catch (Nette\Neon\Exception $e) {
+    die("Error reading config: " . $e->getMessage() . "\n");
+}
+
+if(!isset($config['database']) || count(array_diff(['driver', 'user', 'pass', 'database'], array_keys($config['database']))) > 0) {
+    die("main.conf needs a full database section\n");
+}
+$dbc = $config['database'];
+
+$bots = Array();
+
+$usage = "Usage php leaf.php [botnick1] [botnick2]...
+    Config file is always main.conf most options are in mysql
+    If no botnicks are givin starts all active bots.\n";
+
+$dbc = $config['database'];
 $my_options = Array(
     PDO::ATTR_EMULATE_PREPARES   => false,
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
 );
-
 try {
-    $Mysql = new PDO('mysql:host=' . $cInfo['mysql']['host'][0] . ';dbname=' . $cInfo['mysql']['database'][0] . ';charset=latin1',
-            $cInfo['mysql']['user'][0], $cInfo['mysql']['pass'][0], $my_options);
+    $Mysql = new PDO($dbc['driver'].':host=' . $dbc['host'] . ';dbname=' . $dbc['database'] . ';charset=latin1',
+        $dbc['user'], $dbc['pass'], $my_options);
 } catch (PDOException $e) {
-    echo "Exception while connecting to MySQL: " . $e->getMessage() . "\n";
-    die();
+    die("Exception while connecting to MySQL: " . $e->getMessage() . "\n".
+        "Make sure main.conf is properly setup with database connection info\n");
 }
 
 try {
@@ -174,29 +191,12 @@ if (empty($arf)) {
 var_dump($startbots);
 
 foreach ($startbots as $b) {
-    $bots[$b] = new Bot($b, $cInfo, $sockets, $Mysql);
+    $bots[$b] = new Bot($b, $config, $sockets, $Mysql);
     echo "Starting Bot $b\n";
 
     if (!$bots[$b]) {
         echo "FAILED TO CREATE BOT\n";
         die();
-    }
-}
-
-function startbots($sbs) {
-    global $bots, $cInfo, $sockets, $Mysql;
-
-    foreach ($sbs as $b) {
-        $bots[$b] = new Bot($b, $cInfo, $sockets, $Mysql);
-        echo "Starting Bot $b\n";
-
-        if (!$bots[$b]) {
-            echo "FAILED TO CREATE BOT\n";
-            die();
-        }
-
-        $bots[$b]->init();
-        $bots[$b]->Irc->connect();
     }
 }
 
@@ -262,12 +262,14 @@ class Bot {
         var_dump($botinfo);
 
         //Initialize its IRC connection
-        $this->Irc = new Irc($this->Sockets, $this->name, $botinfo['ip'], $botinfo['server'], $botinfo['ipv'], $botinfo['port'], $botinfo['pass'], $cInfo['irc']['connect_timeout'][0], $cInfo['irc']['ping_timeout'][0]);
+        $this->Irc = new Irc($this->Sockets, $this->name, $botinfo['ip'], $botinfo['server'], $botinfo['ipv'],
+            $botinfo['port'], $botinfo['pass'], $cInfo['irc']['connect_timeout'] ?? 15, $cInfo['irc']['ping_timeout'] ?? 90);
 
         $this->Irc->setThrottle($botinfo['throttle_bytes'], $botinfo['throttle_sec']);
-        $this->Irc->wraplen   = $cInfo['irc']['wraplen'][0];
-        $this->Irc->user      = $botinfo['user'] . ' ' . $botinfo['userline'];
-        $this->Irc->bncuser   = $botinfo['user'];
+        $this->Irc->wraplen   = $cInfo['irc']['wraplen'] ?? 400;
+        $userline_user = $botinfo['user'] ?? 'bots';
+        $userline = $botinfo['userline'] ?? 'localhost localhost :IRC Bot Services #Bots';
+        $this->Irc->user      = "$userline_user $userline";
         $this->Irc->authserv  = $botinfo['authserv'];
         $this->Irc->usermodes = $botinfo['usermodes'];
         $this->bindIp         = $botinfo['ip'];
@@ -278,7 +280,8 @@ class Bot {
         $this->XMLRPC = new HttpServ($this->Sockets, $botinfo['xmlip'], $botinfo['xmlport'], true);
         $this->XMLRPC->init();
 
-        $this->ModuleManager = new ModuleManager($this->Irc, $this->Sockets, $this->BotNet, $this->Mysql, $this->XMLRPC, $MLoader, $cInfo);
+        $this->ModuleManager = new ModuleManager($this->Irc, $this->Sockets, $this->BotNet,
+            $this->Mysql, $this->XMLRPC, $MLoader, $cInfo);
         $this->ModuleManager->init();
         $this->Irc->pMM      = $this->ModuleManager;
         //load botnet

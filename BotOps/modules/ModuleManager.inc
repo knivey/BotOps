@@ -642,7 +642,6 @@ class ModuleManager {
         if($ckey != null) {
         	$cinfo = $this->cinfo[$ckey];
         }
-        var_dump($this->cinfo);
         
         $this->modules[$name]['class']->setVars($this->pIrc, $this->pSockets, $this->pBotNet, $this->pMysql, $this, $cinfo);
         $this->modules[$name]['class']->init();
