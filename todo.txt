@@ -16,3 +16,8 @@ occasionally AS info all the users and expire deleted ones.
 before the bot joins newly created channel seen from /list changes, make sure it still exists.
 when banned do normal rejoin trys 3 times then mute attempts and slow the rejoins to once an hour, notify when rejoined.
 
+youtubu scan show channel info when linked a channel and not video
+trivia dont show duplicated questions
+Module.inc:142 $n is undefined
+bots table has some default values but theres no irc interface to change them
+Irc.inc:203 change sbnc to irc
