@@ -1,6 +1,11 @@
 {
     "require": {
-        "monolog/monolog": "*"
+        "monolog/monolog": "*",
+        "nette/neon": "^3.1",
+        "ext-pdo": "*",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-sockets": "*"
     },
     
     "require-dev": {
