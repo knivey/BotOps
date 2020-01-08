@@ -9,7 +9,7 @@
     },
     
     "require-dev": {
-        "phpunit/PHPUnit": "*",
+        "phpunit/phpunit": "*",
         "phpunit/php-invoker": "*",
         "ext-xdebug": "*"
     },
