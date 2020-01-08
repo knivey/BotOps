@@ -90,7 +90,7 @@ include_once 'HttpServ.php';
 include_once 'Tools/Duration.inc';
 include_once 'Tools/OAuth.php';
 include_once 'Tools/twitteroauth.php';
-require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '../vendor/autoload.php';
 use Nette\Neon\Neon;
 
 //500 000 microseconds = 0.5 seconds
