@@ -2,7 +2,7 @@
 
 include('BotOps/modules/trivia/answers.php');
 
-class answersTest extends PHPUnit_Framework_TestCase {
+class answersTest extends PHPUnit\Framework\TestCase {
 	function testConstruct() {
 		$a = new answers('answera*answerb');
 	}

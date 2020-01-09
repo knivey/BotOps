@@ -31,16 +31,11 @@
  */
 include_once('BotOps/IRC/IrcFilters.php');
 
-class IrcTestFitlers extends PHPUnit_Framework_TestCase {
+class IrcTestFitlers extends PHPUnit\Framework\TestCase {
+    protected static ?IrcFilters $ircFilters;
+    protected static array $filters;
 
-    /**
-     * @var IrcFilters $ircFilters
-     */
-    protected static $ircFilters;
-    
-    protected static $filters;
-
-    public function setUp() {
+    protected function setUp(): void {
         self::$ircFilters = new IrcFilters();
         self::$filters = array(
             0 =>
@@ -62,15 +57,8 @@ class IrcTestFitlers extends PHPUnit_Framework_TestCase {
         );
     }
     
-    public function tearDown() {
+    protected function tearDown(): void {
         self::$ircFilters = NULL;
-    }
-
-    /**
-     * @expectedException PHPUnit_Framework_Error
-     */
-    public function testloadFiltersError() {
-        self::$ircFilters->loadFilters('error');
     }
     
     public function testloadFilters() {
@@ -88,7 +76,8 @@ class IrcTestFitlers extends PHPUnit_Framework_TestCase {
     }
     
     public function testFilterHandler() {
-        $mock = $this->getMock('stdClass', Array('cb'));
+        $mock = $this->createMock(FilterHandler::class);
+
         $mock->expects($this->once())
                  ->method('cb')
                  ->with($this->equalTo(self::$filters[1]),
@@ -101,5 +90,8 @@ class IrcTestFitlers extends PHPUnit_Framework_TestCase {
     }
 }
 
+class FilterHandler {
+    public function cb($a, $b) {return;}
+}
 
 ?>

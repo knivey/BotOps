@@ -1,14 +1,9 @@
 <?php
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
-
 include_once('BotOps/IRC/Irc.inc');
 include_once('BotOps/Sockets.inc');
 
-class IrcTest extends PHPUnit_Framework_TestCase {
+class IrcTest extends PHPUnit\Framework\TestCase {
     /**
      *
      * @var Irc $Irc
@@ -20,40 +15,41 @@ class IrcTest extends PHPUnit_Framework_TestCase {
      */
     protected static $sockets;
     
-    public function setUp() {
-        self::$sockets = $this->getMock('Sockets');
+    protected function setUp() : void {
+        self::$sockets = $this->createMock(Sockets::class);
         
         self::$Irc = new Irc(self::$sockets, 'UnitBot', 0, 'localhost', 4);
     }
     
     public function testConstruct() {
         $irc = new Irc(self::$sockets, 'UnitBot', '127.0.0.1', 'testserv', 4, 1234, 'unitpass', 50, 90);
-        
-        $this->assertAttributeEquals(
-            'bots localhost localhost :IRC Bot Services #Bots',
-            'user', $irc);
-        $this->assertAttributeEquals('testserv', 'server', $irc);
-        $this->assertAttributeEquals(4, 'ipv', $irc);
-        $this->assertAttributeEquals(1234, 'port', $irc);
-        $this->assertAttributeEquals('unitpass', 'pass', $irc);
-        $this->assertAttributeEquals(50, 'timeout', $irc);
-        $this->assertAttributeEquals('127.0.0.1', 'bind', $irc);
-        $this->assertAttributeEquals('UnitBot', 'nick', $irc);
-        $this->assertAttributeEquals(self::$sockets, 'pSockets', $irc);
-        $this->assertAttributeEquals(90, 'RTO', $irc);
-        $this->assertAttributeInstanceOf('IrcFilters', 'ircFilters', $irc);
-        $this->assertAttributeGreaterThan(time()+8, 'nickCheck', $irc);
-        $this->assertAttributeInstanceOf('Nicks', 'Nicks', $irc);
-        $this->assertAttributeInstanceOf('KEventServer', 'eventServer', $irc);
+
+        $this->assertEquals('bots localhost localhost :IRC Bot Services #Bots', $irc->user);
+        $this->assertEquals('testserv', $irc->server);
+        $this->assertEquals(4, $irc->ipv);
+        $this->assertEquals(1234, $irc->port);
+        $this->assertEquals('unitpass', $irc->pass);
+        $this->assertEquals(50, $irc->timeout);
+        $this->assertEquals('127.0.0.1', $irc->bind);
+        $this->assertEquals('UnitBot', $irc->nick);
+        //$this->assertEquals(self::$sockets, $irc->pSockets);
+        $this->assertEquals(90, $irc->RTO);
+        $this->assertInstanceOf('IrcFilters', $irc->ircFilters);
+        $this->assertGreaterThan(time()+8, $irc->nickCheck);
+        $this->assertInstanceOf('Nicks', $irc->Nicks);
+        $this->assertInstanceOf('KEventServer', $irc->eventServer);
         
         $irc = new Irc(self::$sockets, 'UnitBot', '127.0.0.1', 'testserv', 4);
-        $this->assertAttributeEquals(6667, 'port', $irc);
-        $this->assertAttributeEquals('', 'pass', $irc);
-        $this->assertAttributeEquals(30, 'timeout', $irc);
-        $this->assertAttributeEquals(170, 'RTO', $irc);
+        $this->assertEquals(6667,  $irc->port);
+        $this->assertEquals('', $irc->pass);
+        $this->assertEquals(30, $irc->timeout);
+        $this->assertEquals(170, $irc->RTO);
         
         $irc = new Irc(self::$sockets, 'UnitBot', '127.0.0.1', 'testserv', 8);
-        $this->assertAttributeEquals(4, 'ipv', $irc);
+        $this->assertEquals(4, $irc->ipv);
+
+        $irc = new Irc(self::$sockets, 'UnitBot', '127.0.0.1', 'testserv', 6);
+        $this->assertEquals(6, $irc->ipv);
     }
     
     public function testKillBot() {
@@ -61,7 +57,7 @@ class IrcTest extends PHPUnit_Framework_TestCase {
         $this->assertNull(self::$Irc->killBot('testing'));
     }
     
-    public function tearDown() {
+    protected function tearDown() : void {
         self::$sockets = null;
     }
 }

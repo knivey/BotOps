@@ -1,7 +1,7 @@
 <?php
 include_once 'BotOps/Tools/Tools.php';
 
-class ToolsTest extends PHPUnit_Framework_TestCase {
+class ToolsTest extends PHPUnit\Framework\TestCase {
 	
 	public function testMakenice() {
 		$inputa = "hi\nsup";

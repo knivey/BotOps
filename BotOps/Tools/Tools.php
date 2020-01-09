@@ -255,7 +255,7 @@ function bar_meter($n, $d) {
 		if($i < $textpos || $i > ($textpos + strlen($text))) {
 			$out .= ' ';
 		} else {
-			$out .= $text{(int)($i - $textpos)};
+			$out .= $text[(int)($i - $textpos)];
 		}
 		if($i == $n) {
 			$out .= chr(22);
@@ -507,7 +507,7 @@ function makeArgs($string) {
                 $lastChar = $c;
                 continue;
             } else {
-                if (isset($string{$pos + 1}) && $string{$pos + 1} != ' ') {
+                if (isset($string[$pos + 1]) && $string[$pos + 1] != ' ') {
                     //only end or space should follow end quote
                     return $pos + 1;
                 }

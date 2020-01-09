@@ -7,7 +7,7 @@
 
 include_once 'BotOps/Tools/Duration.inc';
 
-class DurationTest extends PHPUnit_Framework_TestCase {
+class DurationTest extends PHPUnit\Framework\TestCase {
     public function teststring2seconds() {
     	global $Duration_periods;
         $this->assertEquals(1, string2Seconds('1s'));
@@ -18,7 +18,7 @@ class DurationTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals($Duration_periods['M'], string2Seconds('1M'));
         $this->assertEquals($Duration_periods['y'], string2Seconds('1y'));
         $this->assertEquals($Duration_periods['y'], string2Seconds('12M'));
-        $this->assertNotInternalType('int', string2Seconds('5z'));
+        $this->assertIsNotInt(string2Seconds('5z'));
     }
     
     public function testDuration_int2array() {

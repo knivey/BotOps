@@ -30,15 +30,12 @@ include_once('BotOps/IRC/Nicks.php');
  * 
  * @author knivey <knivey@botops.net>
  */
-class NicksTest extends PHPUnit_Framework_TestCase {
-    /**
-     * @var Nicks $Nicks
-     */
-    static protected $Nicks;
-    static protected $timemin;
-    static protected $timemax;
+class NicksTest extends PHPUnit\Framework\TestCase {
+    static protected ?Nicks $Nicks;
+    static protected int $timemin;
+    static protected int $timemax;
     
-    function setUp() {
+    protected function setUp(): void {
         self::$Nicks = new Nicks();
         self::$timemin = time() -2;
         self::$timemax = time() +2;
@@ -383,7 +380,7 @@ class NicksTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals(null, self::$Nicks->isVoice(null, null));
     }
     
-    function tearDown() {
+    protected function tearDown(): void {
         self::$Nicks = null;
     }
 }

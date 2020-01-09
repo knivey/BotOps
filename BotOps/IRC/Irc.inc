@@ -739,7 +739,7 @@ class Irc {
         //>> :knivey!knivey@im.srsly.like.verymad.net JOIN :#emo
         //>> :knivey!knivey@im.srsly.like.verymad.net PART :#zen
         //>> :knivey!knivey@im.srsly.like.verymad.net JOIN #zen
-        if ($arg[2]{0} == ':') {
+        if ($arg[2][0] == ':') {
             $arg[2] = substr($arg[2], 1);
         }
         $this->gM('ParseUtil')->set('chan', $arg[2]);
@@ -758,7 +758,7 @@ class Irc {
         //Might need to check if exists
         //But don't see a need unless we lag, then other issues would arise too...
         //So in the mean time we just hope :)
-        if ($arg[2]{0} == ':') {
+        if ($arg[2][0] == ':') {
             $arg[2] = substr($arg[2], 1);
         }
 
@@ -786,7 +786,7 @@ class Irc {
         //first cleanup arg[2] take this example:
         //:BotOps!~bots@BotNetwork.users.gamesurge PART #bots :hi
         //:BotOps!~bots@BotNetwork.users.gamesurge PART :#bots
-        if ($arg[2]{0} == '#') {
+        if ($arg[2][0] == '#') {
             $arg[2] = $arg[2];
             $text = arg_range($arg, 3, -1);
             $text = substr($text, 1);
@@ -835,7 +835,7 @@ class Irc {
         //    $this->ppl[$nick]['lastMsgTime'] = time();
         //    $this->ppl[$nick]['lastMsg'] = Array('target', $arg[2], $text);
         //}
-        if ($arg[2]{0} == '#') {
+        if ($arg[2][0] == '#') {
             $this->eventServer->sendEvent(new IrcEvent('chanevent', Array($arg[2], $this->last_in)));
         }
         $this->eventServer->sendEvent(new IrcEvent('msg', Array($nick, $arg[2], $text)));
@@ -859,7 +859,7 @@ class Irc {
             $this->state = 'authed';
             $this->eventServer->sendEvent(new IrcEvent('authed', Array()));
         }
-        if ($arg[2]{0} == '#') {
+        if ($arg[2][0] == '#') {
             $this->eventServer->sendEvent(new IrcEvent('chanevent', Array($arg[2], $this->last_in)));
         }
         $this->eventServer->sendEvent(new IrcEvent('notice', Array($nick, $arg[2], $text)));
@@ -884,7 +884,7 @@ class Irc {
      */
     function pQuit($nick, $arg) {
         $text = arg_range($arg, 2, -1);
-        if ($text{0} == ':') {
+        if ($text[0] == ':') {
             $text = substr($text, 1);
         }
         foreach (array_keys($this->Nicks->nickChans($nick)) as $c) {
@@ -902,11 +902,11 @@ class Irc {
      */
     function pMode($nick, $arg) {
         $this->gM('ParseUtil')->set('chan', $arg[2]);
-        if ($arg[2]{0} == '#') {
+        if ($arg[2][0] == '#') {
             $this->eventServer->sendEvent(new IrcEvent('chanevent', Array($arg[2], $this->last_in)));
         }
         //:ChanServ!ChanServ@Services.GameSurge.net MODE #bots-dev -oo knives Roffle
-        if ($arg[2]{0} != '#') {
+        if ($arg[2][0] != '#') {
             return;
         }
         if (isset($arg[4])) {
@@ -916,7 +916,7 @@ class Irc {
         }
         $add = true; //adding or removing the mode
         while ($arg[3] != '') {
-            switch ($arg[3]{0}) {
+            switch ($arg[3][0]) {
                 case '+':
                     $add = true;
                     break;
@@ -962,19 +962,19 @@ class Irc {
                     $marg = '';
                     if ($add) {
                         $marg = array_shift($mode_arg);
-                        $this->eventServer->sendEvent(new IrcEvent('+mode', Array($nick, $arg[2], $arg[3]{0}, $marg)));
+                        $this->eventServer->sendEvent(new IrcEvent('+mode', Array($nick, $arg[2], $arg[3][0], $marg)));
                     } else {
-                        if ($arg[3]{0} == 'k') {
+                        if ($arg[3][0] == 'k') {
                             $marg = array_shift($mode_arg);
                         }
-                        $this->eventServer->sendEvent(new IrcEvent('-mode', Array($nick, $arg[2], $arg[3]{0}, $marg)));
+                        $this->eventServer->sendEvent(new IrcEvent('-mode', Array($nick, $arg[2], $arg[3][0], $marg)));
                     }
                     break;
                 default:
                     if ($add) {
-                        $this->eventServer->sendEvent(new IrcEvent('+mode', Array($nick, $arg[2], $arg[3]{0}, '')));
+                        $this->eventServer->sendEvent(new IrcEvent('+mode', Array($nick, $arg[2], $arg[3][0], '')));
                     } else {
-                        $this->eventServer->sendEvent(new IrcEvent('-mode', Array($nick, $arg[2], $arg[3]{0}, '')));
+                        $this->eventServer->sendEvent(new IrcEvent('-mode', Array($nick, $arg[2], $arg[3][0], '')));
                     }
                     break;
             }
@@ -993,14 +993,14 @@ class Irc {
         $this->eventServer->sendEvent(new IrcEvent('raw', Array($line)));
         $dt = strftime('%m/%d/%y %T');
         echo "DATA IN [$dt]: $line\r\n";
-        if($line{0} == ':') {
+        if($line[0] == ':') {
             $line = substr($line, 1);
         }
         //split line by spaces
         $arg = explode(' ', $line);
         //get line after :
         $text = arg_range($arg, 3, -1);
-        if(strlen($text) > 0 && $text{0} == ':') {
+        if(strlen($text) > 0 && $text[0] == ':') {
             $text = substr($text, 1);
         }
         //$text = substr($line, strpos($line, ':')); //this will break if channel name has :

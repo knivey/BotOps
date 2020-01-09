@@ -2,7 +2,7 @@
 
 include('BotOps/modules/trivia/question.php');
 
-class questionTest extends PHPUnit_Framework_TestCase {
+class questionTest extends PHPUnit\Framework\TestCase {
 	function testConstruct() {
 		$q = new question('category:subcategory:question stuff*answera*answerb', 1, 'TestTrivia.txt');
 	}
