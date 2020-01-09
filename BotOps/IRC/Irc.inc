@@ -8,8 +8,6 @@ require_once 'IRC/Nicks.php';
 
 /**
  * Interface to IRC Server
- * @author knivey
- *
  */
 class Irc {
 	/**

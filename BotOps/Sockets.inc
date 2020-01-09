@@ -1,12 +1,9 @@
 <?php
 
 /*
- * **************************************************************************
- * Sockets.inc
  *  Provides a class to manage all our socket connections.
  *  TODO add throttling support and maxbuffer
  *  TODO add reconnect wait time
- * **************************************************************************
  */
 
 class Sockets {

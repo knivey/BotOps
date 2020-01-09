@@ -1,10 +1,7 @@
 <?php
 /*
- ***************************************************************************
- * HttpServ.inc
  *  Made to replace our http.so, uses our socket class to serv website data
  *  Supports XML-RPC
- ***************************************************************************
  */
 
 /*

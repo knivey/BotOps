@@ -1,10 +1,5 @@
 <?php
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
-
 class registry {
     var $author = 'kNiVeY';
     var $version = '1.0';

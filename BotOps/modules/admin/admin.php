@@ -1,10 +1,5 @@
 <?php
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
-
 class admin extends Module {
     function cmd_dnr($nick, $chan, $msg) {
         /*

@@ -1,8 +1,6 @@
 <?php
 /**
  * Handles answers for the question currently asked
- * @author knivey
- *
  */
 class answers {
 	/**

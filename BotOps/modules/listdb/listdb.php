@@ -1,8 +1,5 @@
 <?php
 
-/*
- * Lol this is sure to use tons of ram
- */
 require_once('modules/Module.inc');
 require_once('Tools/Tools.php');
 

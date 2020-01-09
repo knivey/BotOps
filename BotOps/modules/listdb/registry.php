@@ -1,22 +1,12 @@
 <?php
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 class registry {
     var $version = '1.0';
     var $author = 'knivey';
     var $description = "Channel List database";
 
     var $require = Array('CmdReg');
-/*
-    var $SetReg = Array(
-        'channel' => Array(
-            Array('greeting', '1', "Chan greet", "*"),
-        )
-    );
-*/
+
     var $CmdReg = Array(
         'funcs' => Array(
             Array('csearch', 'cmd_csearch', "[#chan]", "Peek at a channel"),
