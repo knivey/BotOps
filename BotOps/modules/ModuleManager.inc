@@ -518,7 +518,7 @@ class ModuleManager {
         $this->readFile('modules/list.conf');
 
         foreach ($this->data as $line) {
-            if ($line == NULL || $line{0} == '#') {
+            if ($line == NULL || $line[0] == '#') {
                 continue; // line was a comment
             }
             $this->list[] = trim($line);

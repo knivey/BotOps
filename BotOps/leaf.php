@@ -90,7 +90,7 @@ include_once 'HttpServ.php';
 include_once 'Tools/Duration.inc';
 include_once 'Tools/OAuth.php';
 include_once 'Tools/twitteroauth.php';
-require __DIR__ . '../vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 use Nette\Neon\Neon;
 
 //500 000 microseconds = 0.5 seconds
@@ -168,7 +168,7 @@ if (empty($arf)) {
     $startbots = $botnames;
 } else {
     foreach ($arf as $b) {
-        if ($b{0} == '-' && $b{1} == '-') {
+        if ($b[0] == '-' && $b[1] == '-') {
             $b = substr($b, 2);
             if ($b == 'help') {
                 echo $usage;
