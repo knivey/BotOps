@@ -423,7 +423,7 @@ class CmdReg extends Module {
     }
 
     function getUsed($bind) {
-        if(isset($this->binds[$bind])) {
+        if(!isset($this->binds[$bind])) {
             return 0;
         }
         
