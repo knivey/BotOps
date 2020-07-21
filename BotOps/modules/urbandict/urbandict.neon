@@ -1,0 +1,8 @@
+description: Urban Dictionary
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+            cmd_ud: {syntax: <term>..., desc: Look up urban dictionary}
+        binds:
+            ud: {func: cmd_ud}

@@ -1,0 +1,47 @@
+description: Keep track of all commands
+require: [user]
+slots:
+    loaded: {from: ModuleManager, name: load}
+    reloaded: {from: ModuleManager, name: reload}
+    unloaded: {from: ModuleManager, name: unload}
+XMLRPC:
+    unbind: rpc_unbind
+    bind: rpc_bind
+    modcmd: rpc_modcmd
+irc:
+    hooks:
+        inmsg: {hook: msg}
+Modules:
+    CmdReg:
+        funcs:
+            cmd_command: {syntax: <command>, desc: Show information about a command.}
+            cmd_bind: {syntax: "<bind> <module> <function> [args]...", desc: Command to create/update bindings. Use modcmd to change bind options.}
+            cmd_unbind: {syntax: <bind>, desc: Test command to remove bindings.}
+            cmd_modcmd: {syntax: "<bind> [setting] [value]...", desc: Test command to modify bindings.}
+            cmd_showfuncs: {syntax: "[mod]", desc: Show functions provided by a module.}
+            cmd_cmdhistory: {desc: Show short history of commands used in channel, needchan: true}
+            cmd_gag: {syntax: <hostmask> <duration> <reason>..., desc: Keep hostmask from using commands}
+            cmd_isgag: {syntax: <host>, desc: Check if a host is gaged}
+        binds:
+            command: {func: cmd_command}
+            showfuncs: {func: cmd_showfuncs}
+            cmdbind: {access: D, func: cmd_bind, loglvl: 3}
+            cmdunbind: {access: D, func: cmd_unbind, loglvl: 3}
+            modcmd: {access: D, func: cmd_modcmd, loglvl: 3}
+            cmdhistory: {access: 4, func: cmd_cmdhistory}
+            gag: {access: O, func: cmd_gag, loglvl: 3}
+            isgag: {access: O, func: cmd_isgag}
+    logs:
+        date: {type: varchar(255)}
+        cmd: {type: varchar(255)}
+        override: {type: bool}
+        nick: {type: varchar(255)}
+        hand: {type: varchar(255)}
+        target: {type: varchar(255)}
+        host: {type: text}
+        msg: {type: text}
+        bot: {type: varchar(255)}
+    ParseUtil:
+        vars:
+            args: {func: v_args, desc: "full text passed to command"}
+            cmd: {func: v_cmd, desc: "command name being used"}

@@ -1,0 +1,10 @@
+description: Channel Stats Page
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+            cmd_cstats: {desc: Show link for channel stats, needchan: true}
+            cmd_forcestats: {desc: Force channel stats to generate}
+        binds:
+            cstats: {func: cmd_cstats}
+            forcestats: {access: S, func: cmd_forcestats, loglvl: 3}

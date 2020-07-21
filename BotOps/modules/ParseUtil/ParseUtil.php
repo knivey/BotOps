@@ -1,11 +1,5 @@
 <?php
-/*
- ***************************************************************************
- * ParseUtil.php
- *   Provides tools for parsing strings and gives us our simple scripting
- *   stuff for $vars on outgoing text.
- ***************************************************************************/
-
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 require_once 'modules/Module.inc';
 require_once 'modules/ParseUtil/Chunks.php';
 
@@ -50,12 +44,18 @@ class ParseUtil extends Module {
 
     }
 
-    function cmd_say($nick, $target, $arg2) {
-        $this->msg($target, $arg2);
+    function cmd_say(CmdRequest $r) {
+        $target = $r->chan;
+        if($r->pm)
+            $target = $r->nick;
+        $this->msg($target, $r->args[0]);
     }
     
-    function cmd_act($nick, $target, $arg2) {
-        $this->act($target, $arg2);
+    function cmd_act(CmdRequest $r) {
+        $target = $r->chan;
+        if($r->pm)
+            $target = $r->nick;
+        $this->act($target, $r->args[0]);
     }
 
     function msg($target, $msg) {
@@ -77,6 +77,7 @@ class ParseUtil extends Module {
     function v_nick($args, $store) { return $store; }
     function v_target($args, $store) { return $store; }
     function v_host($args, $store) { return $store; }
+    function v_bot() {return $this->pIrc->currentNick();}
 
     function v_trig() {
         $chan = $this->getV('chan');
@@ -119,7 +120,7 @@ class ParseUtil extends Module {
         }
         $n = $args[0];
         $toend = false;
-        if($n{strlen($n)-1} == '-') {
+        if($n[strlen($n)-1] == '-') {
             $toend = true;
             $n = substr($n, 0, strlen($n) -1);
         }
@@ -185,7 +186,7 @@ class ParseUtil extends Module {
             if($i < $textpos || $i > ($textpos + strlen($text))) {
                 $out .= ' ';
             } else {
-                $out .= $text{$i - $textpos};
+                $out .= $text[$i - $textpos];
             }
             if($i >= $n && !$ended) {
                 $out .= chr(22);
@@ -240,24 +241,16 @@ class ParseUtil extends Module {
     }
 
     function loaded($args) {
-        $info = $this->pMM->getRegistry($args['name'], 'ParseUtil');
+        $info = $this->pMM->getConf($args['name'], 'ParseUtil');
         $mod = $args['name'];
         if($info == null) return;
         echo "ParseUtil loading module $args[name]\n";
         //Handle our section of registry.conf here
-        if(array_key_exists('vars', $info) && is_array($info['vars'])) {
-            foreach($info['vars'] as $f) {
-                $name = array_shift($f);
-                $func = array_shift($f);
-                $desc = array_shift($f);
-                if(count($f) > 0) {
-                    $arg = $f;
-                } else {
-                    $arg = null;
-                }
-                echo "ParseUtil added $name - $desc to $func of $mod";
-                $this->addVar($name, $desc, $arg, $mod, $func);
-                unset($arg);
+        if(isset($info['vars']) && is_array($info['vars'])) {
+            foreach($info['vars'] as $name => $v) {
+                $arg = $v['args'] ?? null;
+                echo "ParseUtil added $name - $v[desc] to $v[func] of $mod\n";
+                $this->addVar($name, $v['desc'], $arg, $mod, $v['func']);
             }
         }
     }
@@ -326,32 +319,5 @@ class ParseUtil extends Module {
             }
         }
     }
-
-    /*
-     * old filter below
-     *
-     * whats left i need to add i guess
-     */
-    function filter($chan, $nick, $host, $account, $botnick, $channels, $c, $string, $arg = Array()) {
-
-
-        $p[1] = '$cmds';     $r[1] = $cmds;
-        $p[7] = '$trig';       $r[7] = '.';
-        $p[8] = '$rnick';	    $r[8] = array_rand($tempy);
-/*
-        $pos = strpos($string, '$sc(');
-        if($pos !== FALSE) {
-            $endpos = strpos($string, ')', $pos + 4);
-            $p[9] = substr($string, $pos, ($endpos - $pos) + 1); $r[9] = get_shoutcast(substr($string, $pos + 4, strpos($string, ')', $pos + 4) - ($pos + 4)));
-        }
-
-        $pos = strpos($string, '$query(');
-        if($pos !== FALSE) {
-            $endpos = strpos($string, ')', $pos + 7);
-            $p[10] = substr($string, $pos, ($endpos - $pos) + 1); $r[10] = get_sinfo(substr($string, $pos + 7, strpos($string, ')', $pos + 7) - ($pos + 7)));
-        }
-
-*/
-    }
 };
-?>
+

@@ -1,0 +1,12 @@
+description: Shoutcast & Icecast
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+            cmd_castinfo: {syntax: <ip:port>, desc: Get shoutcast or IceCast info}
+            cmd_casttrack: {syntax: <ip:port>, desc: "Connect to a stream and update on changes.", needchan: true}
+            cmd_caststop: {syntax: <ip:port>, desc: Stop a casttrack, needchan: true}
+        binds:
+            castinfo: {func: cmd_castinfo}
+            casttrack: {access: D, func: cmd_casttrack}
+            caststop: {access: D, func: cmd_caststop}

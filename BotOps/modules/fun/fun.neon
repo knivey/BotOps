@@ -1,0 +1,39 @@
+description: "Fun module, toy commands"
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+#            cmd_fml: {desc: Random FML stories}
+#            cmd_fmll: {desc: Random FML stories Long output}
+            cmd_ping: {desc: Ping/Pong}
+            cmd_spell: {syntax: <word>, desc: spellcheck}
+            cmd_time: {desc: Time}
+            cmd_bash: {desc: View random Bash.org Quotes}
+            cmd_txts: {desc: View random Texts From Last Night}
+            cmd_tweet: {syntax: <tweet>..., desc: post a status update to BotNetwork twitter}
+            cmd_qball: {desc: Ask the qball a question}
+            cmd_qballadd: {syntax: <new_response>, desc: Add a qball response}
+            cmd_qballdel: {syntax: <id>, desc: Remove a qball response}
+            cmd_qballsearch: {syntax: <search>, desc: Show reponse IDs matching the search, (surround with *)}
+            cmd_qballinfo: {syntax: <id>, desc: Show info on the qball response ID}
+            cmd_cal: {desc: Show a calendar}
+            cmd_ddg: {syntax: <query>..., desc: Search the net}
+            cmd_yandex: {syntax: <query>..., desc: Search the net}
+        binds:
+#            fml: {func: cmd_fml}
+#            fmll: {func: cmd_fmll}
+            ping: {func: cmd_ping}
+            spell: {func: cmd_spell}
+            time: {func: cmd_time}
+            bash: {func: cmd_bash}
+            txts: {func: cmd_txts}
+            tweet: {access: O, func: cmd_tweet}
+            qball: {func: cmd_qball}
+            qballadd: {access: O, func: cmd_qballadd, loglvl: 3}
+            qballdel: {access: O, func: cmd_qballdel, loglvl: 3}
+            qballsearch: {access: O, func: cmd_qballsearch}
+            qballinfo: {access: O, func: cmd_qballinfo}
+            cal: {func: cmd_cal}
+            google: {func: cmd_ddg}
+            ddg: {func: cmd_ddg}
+            yandex: {func: cmd_yandex}

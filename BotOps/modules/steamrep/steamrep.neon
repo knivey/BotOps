@@ -1,0 +1,8 @@
+description: Steam Reputation
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+            cmd_steamrep: {syntax: <steamid|alias>, desc: Lookup steamrep info}
+        binds:
+            steamrep: {func: cmd_steamrep}

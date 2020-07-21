@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 
 require_once('modules/Module.inc');
 
@@ -31,29 +32,25 @@ class weather extends Module {
         )
     );
 
-    public function cmd_weather($nick, $chan, $arg2) {
-        $host  = $this->pIrc->n2h($nick);
-        $hand  = $this->gM('user')->byHost($host);
+    public function cmd_weather(CmdRequest $r) {
+        $hand  = $r->account;
         $units = $this->getUnits($hand, $arg2);
-        $query = $arg2;
+        $query = $r->args[0];
         if ($query == '') {
             $query = $this->gM('user')->getzip($hand);
         }
         if ($query == '') {
-            $this->pIrc->msg($chan, "\2Weather Error (Location):\2 You dont have a location set.");
-            return;
+            throw new CmdException("You dont have a location set. /msg \$bot set zip location");
         }
 
         list($err, $lat, $lon, $location) = $this->getLatLon($query);
         if ($err) {
-            $this->pIrc->msg($chan, "\2Weather Error (Location):\2 $err");
-            return;
+            throw new CmdException("(Location): $err");
         }
 
         list($err, $dkey) = $this->pGetConfig('darksky_key');
         if ($err) {
-            $this->pIrc->msg($chan, "\2Weather Error (Darksky):\2 Config missing key");
-            return;
+            throw new CmdException("(Darksky): Config missing key");
         }
 
         $ch  = curl_init("https://api.darksky.net/forecast/$dkey/$lat,$lon?exclude=minutely,hourly&units=$units");
@@ -64,20 +61,17 @@ class weather extends Module {
         curl_close($ch);
 
         if ($res === FALSE) {
-            $this->pIrc->msg($chan, "\2Weather Error (Darksky):\2 " . curl_error($ch));
-            return;
+            throw new CmdException("(Darksky): " . curl_error($ch));
         }
         $w = json_decode($res, true);
         if (!$w || @$w['error']) {
-            $this->pIrc->msg($chan, "\2Weather Error (Darksky):\2 " . @!$w ? 'Unknown Data' : $w['error']);
-            return;
+            throw new CmdException("(Darksky): " . @!$w ? 'Unknown Data' : $w['error']);
         }
         $tz = $w['timezone'];
 
         list($err, $sunrise, $sunset, $timenow) = $this->getTimes($lat, $lon, $tz);
         if ($err) {
-            $this->pIrc->msg($chan, "\2Weather Error (Timezone):\2 $err");
-            return;
+            throw new CmdException("(Timezone): $err");
         }
         $c = $w['currently'];
         
@@ -128,8 +122,8 @@ class weather extends Module {
             $fc .= $out;
         }
 
-        $this->pIrc->msg($chan, "\2(\2$location\2)\2 $timenow \2Currently:\2 $cond, $cloudCover Cloud Cover $temp \2Humidity:\2 $humd \2Wind:\2 $windDir @ $windSpeed \2Sunrise:\2 $sunrise \2Sunset:\2 $sunset");
-        $this->pIrc->msg($chan, "\2(\2Forecast\2)\2 $fc");
+        $r->reply("\2(\2$location\2)\2 $timenow \2Currently:\2 $cond, $cloudCover Cloud Cover $temp \2Humidity:\2 $humd \2Wind:\2 $windDir @ $windSpeed \2Sunrise:\2 $sunrise \2Sunset:\2 $sunset");
+        $r->reply("\2(\2Forecast\2)\2 $fc");
     }
 
     //returns error, lat, lon

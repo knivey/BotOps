@@ -1,5 +1,4 @@
 <?php
-
 /*
  * basic tools
  */
@@ -93,7 +92,7 @@ function niceArgs($txt) {
  * @param string $nick
  * @return bool
  */
-function validNick($nick) {
+function validNick(string $nick) {
     $first = preg_match('/[A-Z]|[a-z]([A-}]|_|-|[0-9])*/', $nick[0]);
     if($first != 1) {
         return false;
@@ -118,9 +117,9 @@ function argClean($arg) {
 /**
  * Searches $ar until it finds case insensitive match for $key
  * and returns it, or NULL on fail.
- * @param multiype $key
+ * @param mixed $key
  * @param Array $ar
- * @return multitype
+ * @return mixed
  */
 function get_akey_nc($key, $ar) {
 	if(is_array($ar)) {

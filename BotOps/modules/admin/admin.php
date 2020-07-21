@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 
 class admin extends Module {
     function cmd_dnr($nick, $chan, $msg) {
@@ -34,81 +35,51 @@ class admin extends Module {
         $this->pIrc->ircFilters->loadFilters($filters);
     }
     
-    function cmd_addfilter($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if($argc < 1) {
-            return $this->BADARGS;
-        }
-        try {
-            $stmt = $this->pMysql->prepare("INSERT INTO `filters` (`made`,`who`,`text`,`caught`)".
-                    " VALUES(:time,:user,:msg,0)");
-            $stmt->bindValue(':time', time());
-            $stmt->bindValue(':user', $this->gM('user')->byNick($nick));
-            $stmt->bindValue(':msg', $msg);
-            $stmt->execute();
-            $id = $this->pMysql->lastInsertId();
-            $stmt->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-        }
-        $this->pIrc->notice($nick, "New filter rule has been added, ID: $id");
+    function cmd_addfilter(CmdRequest $r) {
+        $stmt = $this->pMysql->prepare("INSERT INTO `filters` (`made`,`who`,`text`,`caught`)".
+                " VALUES(:time,:user,:msg,0)");
+        $stmt->bindValue(':time', time());
+        $stmt->bindValue(':user', $r->account);
+        $stmt->bindValue(':msg', $r->args['mask']);
+        $stmt->execute();
+        $id = $this->pMysql->lastInsertId();
+        $stmt->closeCursor();
+        $r->notice("New filter rule has been added, ID: $id");
     }
     
-    function cmd_delfilter($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if($argc < 1) {
-            return $this->BADARGS;
-        }
-        try {
-            $stmt = $this->pMysql->prepare("SELECT * FROM `filters` WHERE `id` = :id");
-            $stmt->bindValue(':id', $argv[0]);
-            $stmt->execute();
-            $resp = $stmt->fetch();
-            $stmt->closeCursor();
-            if(!empty($resp) && array_key_exists('text', $resp)) {
-                $stmtd = $this->pMysql->prepare("DELETE FROM `filters` WHERE `id` = :id");
-                $stmtd->bindValue(':id', $argv[0]);
-                $stmtd->execute();
-                $stmtd->closeCursor();
-                $this->gM('xnet')->sendToAll(null, null, 'loadfilters', Array());
-                $this->pIrc->notice($nick, "Filter ID: $argv[0] is now removed.");
-            } else {
-                $this->pIrc->notice($nick, "No filters by that id: $argv[0]");
-            }
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+    function cmd_delfilter(CmdRequest $r) {
+        $stmt = $this->pMysql->prepare("SELECT * FROM `filters` WHERE `id` = :id");
+        $stmt->bindValue(':id', $r->args['id']);
+        $stmt->execute();
+        $resp = $stmt->fetch();
+        $stmt->closeCursor();
+        if(!empty($resp) && array_key_exists('text', $resp)) {
+            $stmtd = $this->pMysql->prepare("DELETE FROM `filters` WHERE `id` = :id");
+            $stmtd->bindValue(':id', $r->args['id']);
+            $stmtd->execute();
+            $stmtd->closeCursor();
+            $this->gM('xnet')->sendToAll(null, null, 'loadfilters', Array());
+            $r->notice("Filter ID: {$r->args['id']} is now removed.");
+        } else {
+            $r->notice("No filters by that id: {$r->args['id']}");
         }
     }
     
-    function cmd_listfilters($nick, $chan, $msg) {
-        $this->pIrc->notice($nick, "The filter list can be viewed at: Http://botops.net/filters.php");
+    function cmd_listfilters(CmdRequest $r) {
+        $r->notice("The filter list can be viewed at: Http://botops.net/filters.php");
     }
     
-    function cmd_setbot($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if($argc < 1) {
-            return $this->BADARGS;
-        }
-        $name = $this->botExists($argv[0]);
+    function cmd_setbot(CmdRequest $r) {
+        $name = $this->botExists($r->args['name']);
         if (!$name) {
-            $this->pIrc->notice($nick, "Bot $argv[0] doesn't exist in my database!");
-            return $this->ERROR;
+            throw new CmdException("Bot {$r->args['name']} doesn't exist in my database!");
         }
-        try {
-            $stmt = $this->pMysql->prepare("SELECT * FROM `bots` WHERE `name` = :name");
-            $stmt->bindValue(':name', $name);
-            $stmt->execute();
-            $results = $stmt->fetch();
-            $stmt->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-        }
+
+        $stmt = $this->pMysql->prepare("SELECT * FROM `bots` WHERE `name` = :name");
+        $stmt->bindValue(':name', $name);
+        $stmt->execute();
+        $results = $stmt->fetch();
+        $stmt->closeCursor();
         
         $editable = Array();
         foreach($results as $f => $v) {
@@ -123,7 +94,7 @@ class admin extends Module {
             }
         }
         
-        if($argc < 2) {
+        if(!isset($r->args['val'])) {
             //show settings..
             //make a neat table..
             $userline = $editable['userline'];
@@ -142,126 +113,97 @@ class admin extends Module {
             }
             //$out = multi_array_padding($out);
             foreach($out as &$line) {
-                $this->pIrc->notice($nick, trim(implode(' ', $line)));
+                $r->notice(trim(implode(' ', $line)));
             }
-            $this->pIrc->notice($nick, "\2userline:\2 $userline");
+            $r->notice("\2userline:\2 $userline");
             return;
         }
-        $wut = strtolower($argv[1]);
-        $newval = arg_range($argv, 2, -1);
+        list($argc, $argv) = niceArgs($r->args[$r->args['val']]);
+        $wut = strtolower($argv[0]);
+        $newval = arg_range($argv, 1, -1);
         if($wut == 'authserv') {
-            $this->pIrc->notice($nick, "Modification of authserv line from IRC forbidden");
-            return;
+            throw new CmdException("Modification of authserv line from IRC forbidden");
         }
         if(!array_key_exists($wut, $editable)) {
-            $this->pIrc->notice($nick, "That option doesn't exist or is not editable");
-            return;
+            throw new CmdException("That option doesn't exist or is not editable");
         }
         if($newval == '') {
-            $this->pIrc->notice($nick, "\2$wut:\2 $editable[$wut]");
+            $r->notice("\2$wut:\2 $editable[$wut]");
             return;
         }
         //try to change the setting
         if($wut == 'name') {
             //check if the botname is a valid irc nick
             if(!validNick($newval)) {
-                $this->pIrc->notice($nick, "$newval is not a valid IRC nickname");
-                return;
+                throw new CmdException("$newval is not a valid IRC nickname");
             }
             //rename the bot's table
-            try {
-                $qname = $this->mq($name);
-                $qnewval = $this->mq($newval);
-                $this->pMysql->query("RENAME TABLE `$qname` TO `$qnewval`");
-            } catch (PDOException $e) {
-                $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-                echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-                $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-                return;
-            }
+            $qname = $this->mq($name);
+            $qnewval = $this->mq($newval);
+            $this->pMysql->query("RENAME TABLE `$qname` TO `$qnewval`");
+
             //If bot is online tell it the new name
             $this->gM('xnet')->sendRPC(null, null, $name, 'rename', Array($newval));
         }
-        try {
-            $wut = $this->mq($wut);
-            $stmt = $this->pMysql->prepare("UPDATE `bots` SET `$wut` = :newval WHERE `name` = :name");
-            $stmt->bindValue(':newval', $newval);
-            $stmt->bindValue(':name', $name);
-            $stmt->execute();
-            $stmt->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-            return;
-        }
-        $this->pIrc->notice($nick, "Setting $wut for $name changed to $newval");
-        $this->pIrc->notice($nick, "Botset changes usually require that bot to restart.");
+
+        $wut = $this->mq($wut);
+        $stmt = $this->pMysql->prepare("UPDATE `bots` SET `$wut` = :newval WHERE `name` = :name");
+        $stmt->bindValue(':newval', $newval);
+        $stmt->bindValue(':name', $name);
+        $stmt->execute();
+        $stmt->closeCursor();
+        $r->notice("Setting $wut for $name changed to $newval");
+        $r->notice("Botset changes may require the bot to restart.");
     }
     
-    public function cmd_switchbot($nick, $target, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if($argc < 3) {
-            return $this->BADARGS;
-        }
-        $chan = strtolower($argv[0]);
-        $oldbot = $this->botExists($argv[1]);
-        $newbot = $this->botExists($argv[2]);
+    public function cmd_switchbot(CmdRequest $r) {
+        $oldbot = $this->botExists($r->args['oldbot']);
+        $newbot = $this->botExists($r->args['newbot']);
         if (!$oldbot) {
-            $this->pIrc->notice($nick, "Bot $oldbot doesn't exist in my database!");
-            return $this->ERROR;
+            throw new CmdException("Bot $r->args['oldbot'] doesn't exist in my database!");
         }
         if (!$newbot) {
-            $this->pIrc->notice($nick, "Bot $newbot doesn't exist in my database!");
-            return $this->ERROR;
+            throw new CmdException("Bot $r->args['newbot'] doesn't exist in my database!");
         }
-        $bots = $this->gM('channel')->botsOnChan($chan);
+        $bots = $this->gM('channel')->botsOnChan($r->chan);
         $bots = array_flip($bots);
         if(count($bots) == 0) {
-            $this->pIrc->notice($nick, "Channel $chan doesn't exist in my database!");
-            return $this->ERROR;
+            throw new CmdException("Channel {$r->chan} doesn't exist in my database!");
         }
         //check if chan exists with oldbot
         $old = get_akey_nc($oldbot, $bots);
-        if($old == '') {
-            $this->pIrc->notice($nick, "Channel $chan is not registered to $oldbot");
-            return $this->ERROR;
+        if(!$old) {
+            throw new CmdException("Channel {$r->chan} is not registered to $oldbot");
         }
         //check if newbot is already added to chan
         $new = get_akey_nc($newbot, $bots);
-        if($new != '') {
-            $this->pIrc->notice($nick, "Channel $chan is already registered to $newbot");
-            return $this->ERROR;
+        if($new) {
+            throw new CmdException("Channel {$r->chan} is already registered to $newbot");
         }
-                
-        try {
-            //copy data from oldbot table to newbot table
-            $newb = $this->mq($newbot);
-            $oldb = $this->mq($oldbot);
-            $stmta = $this->pMysql->prepare("INSERT INTO `$newb` (name,settings,trig) SELECT name,settings,trig FROM `$oldb` WHERE `name` = :chan");
-            $stmta->execute(Array(':chan' => $chan));
-            $stmta->closeCursor();
-            //update bots table to add to new bot
-            $stmtb = $this->pMysql->prepare("SELECT `chans` FROM `bots` WHERE `name` = :name");
-            $stmtb->execute(Array(':name' => $newbot));
-            $row = $stmtb->fetch();
-            $chans = trim(trim($row['chans']) . " 1:$chan");
-            $stmtb->closeCursor();
-            $stmtc = $this->pMysql->prepare("UPDATE `bots` SET `chans` = :chans WHERE `name` = :newbot");
-            $stmtc->execute(Array(':newbot' => $newbot, ':chans' => $chans));
-            $stmtc->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-        }
+
+        //copy data from oldbot table to newbot table
+        $newb = $this->mq($newbot);
+        $oldb = $this->mq($oldbot);
+        $stmta = $this->pMysql->prepare("INSERT INTO `$newb` (name,settings,trig) SELECT name,settings,trig FROM `$oldb` WHERE `name` = :chan");
+        $stmta->execute(Array(':chan' => strtolower($r->chan)));
+        $stmta->closeCursor();
+        //update bots table to add to new bot
+        $stmtb = $this->pMysql->prepare("SELECT `chans` FROM `bots` WHERE `name` = :name");
+        $stmtb->execute(Array(':name' => $newbot));
+        $row = $stmtb->fetch();
+        $chans = trim(trim($row['chans']) . " 1:" . strtolower($r->chan));
+        $stmtb->closeCursor();
+        $stmtc = $this->pMysql->prepare("UPDATE `bots` SET `chans` = :chans WHERE `name` = :newbot");
+        $stmtc->execute(Array(':newbot' => $newbot, ':chans' => $chans));
+        $stmtc->closeCursor();
+
         //tell oldbot to channel.delchan with switch message
         //   (should send signal for other mods (scorebot)
         //    but not remove access since newbot has chan)
-        $this->gM('xnet')->sendRPC($this, 'switchBotCB', $oldbot, 'delchan', Array($chan,$nick,$newbot), Array($oldbot,$chan));
+        $this->gM('xnet')->sendRPC($this, 'switchBotCB', $oldbot, 'delchan', Array(strtolower($r->chan),$r->nick,$newbot), Array($oldbot,strtolower($r->chan)));
         //tell newbot to load channel and join
-        $this->gM('xnet')->sendRPC(null, null, $newbot, 'loadjoin', Array($chan));
-        $this->pIrc->notice($nick, "Bots switched!");
+        $this->gM('xnet')->sendRPC(null, null, $newbot, 'loadjoin', Array(strtolower($r->chan)));
+        $r->notice("Bots switched!");
     }
     
     public function switchBotCB($d, $extra) {
@@ -313,17 +255,13 @@ class admin extends Module {
         //not sure what else to update
     }
     
-    public $whois = Array();
-    function cmd_whois($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if($argc < 1) {
-            return $this->BADARGS;
+    public array $whois = Array();
+    function cmd_whois(CmdRequest $r) {
+        if(!validNick($r->args['nick'])) {
+            throw new CmdException("\2{$r->args['nick']}\2 is not a valid irc nickname.");
         }
-        if(!validNick($argv[0])) {
-            $this->pIrc->msg($chan, "\2$argv[0]\2 is not a valid irc nickname.");
-        }
-        $this->whois[$argv[0]] = Array('extra' => Array($nick,$chan,$argv[0]));
-        $this->pIrc->raw("whois $argv[0] $argv[0]");
+        $this->whois[$r->args['nick']]['extra'] = $r;
+        $this->pIrc->raw("whois {$r->args['nick']} {$r->args['nick']}");
     }
     
     //:bots.phuzion.net 311 knivey Daniel ~Daniel noorys.bedroom * :Daniel
@@ -343,7 +281,12 @@ class admin extends Module {
         $key = get_akey_nc($who, $this->whois);
         if($key == '') return;
         $argv[4] = substr($argv[4],1);
-        $this->whois[$key]['channels'] = arg_range($argv, 4, -1);
+        if(!isset($this->whois[$key]['channels'])) {
+            $this->whois[$key]['channels'] = '';
+        } else {
+            $this->whois[$key]['channels'] .= ' ';
+        }
+        $this->whois[$key]['channels'] .= arg_range($argv, 4, -1);
     }
     //:bots.phuzion.net 301 knivey Daniel :Auto Away/Idle Since Tue Sep 11 11:09:50 2012
     function h_301($msg) {
@@ -378,9 +321,12 @@ class admin extends Module {
         $key = get_akey_nc($who, $this->whois);
         if($key == '') return;
         $whois = $this->whois[$key];
-        list($nick,$chan,$q) = $whois['extra'];
+        /**
+         * @var CmdRequest $r
+         */
+        $r = $whois['extra'];
         
-        $out = "\2Whois\2 for \2$q\2 ($whois[host]) $whois[userinfo]\n";
+        $out = "\2Whois\2 for \2$who\2 ($whois[host]) $whois[userinfo]\n";
         //go through each channel and hide +s
         $chans = explode(' ', $whois['channels']);
         $display_chans = Array();
@@ -401,7 +347,7 @@ class admin extends Module {
         $out .= "\2AuthServ:\2 $whois[auth] \2Idle:\2 $whois[idle] \2Signon:\2 $whois[signon]";
         $out = explode("\n", $out);
         foreach($out as $o) {
-            $this->pIrc->msg($chan, $o);
+            $r->reply($o);
         }
         unset($this->whois[$key]);
     }
@@ -412,23 +358,19 @@ class admin extends Module {
         $who = $argv[3];
         $key = get_akey_nc($who, $this->whois);
         if($key == '') return;
-        list($nick,$chan,$q) = $this->whois[$key]['extra'];
-        $this->pIrc->msg($chan, "Whois for $q returned no result.");
+        /**
+         * @var CmdRequest $r
+         */
+        $r = $this->whois[$key]['extra'];
+        $r->reply("Whois for $who returned no result.");
         unset($this->whois[$key]);
     }
     
-    function cmd_clonescan($nick, $chann, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if($argc > 0) {
-            $chan = $argv[0];
-        } else {
-            $chan = $chann;
+    function cmd_clonescan(CmdRequest $r) {
+        if(!$this->gM('channel')->onChan($r->chan)) {
+            throw new CmdException("I'm not in that channel. ({$r->chan})");
         }
-        if(!$this->gM('channel')->onChan($chan)) {
-            $this->pIrc->notice($nick, "I'm not in that channel. ($chan)");
-            return;
-        }
-        $nhs = $this->gM('channel')->chanNickHosts($chan);
+        $nhs = $this->gM('channel')->chanNickHosts($r->chan);
         $hosts = Array();
         foreach($nhs as $n => $h) {
             list($i,$h) = explode('@', $h);
@@ -445,23 +387,17 @@ class admin extends Module {
             $out .= '(' . implode(',', $cs) . ') ';
         }
         if($out == '') {
-            $this->pIrc->msg($chann, "No clones detected in $chan");
+            $r->notice("No clones detected in $r->chan");
         } else {
-            $this->pIrc->msg($chann, "Clones in $chan: $out");
+            $r->notice("Clones in $r->chan: $out");
         }
     }
-    
-    //startbot botname1 botname2...|* -newpid
+
     function cmd_startbot($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if($argc < 1) {
-            return $this->BADARGS;
-        }
-        $this->gM('xnet')->sendToAll($this, 'startbotCB', 'botinfo', null, Array($nick, $chan, $msg));
+        $this->gM('xnet')->sendToAll($this, 'startbotCB', 'botinfo', null, $r);
     }
     
-    function startbotCB($data, $extra) {
-        list($nick, $chan, $msg) = $extra;
+    function startbotCB($data, CmdRequest $r) {
         $botson = Array();
         foreach($data as $d) {
             if(array_key_exists('error', $d)) {
@@ -470,10 +406,7 @@ class admin extends Module {
                 $botson[] = $d['bot'];
             }
         }
-        list($argc, $argv) = niceArgs($msg);
-        if($argc < 1) {
-            return $this->BADARGS;
-        }
+        list($argc, $argv) = niceArgs($r->args['bots']);
         $newpid = false;
         if(array_search('-newpid', $argv) !== FALSE) {
             $newpid = true;
@@ -485,33 +418,25 @@ class admin extends Module {
             }
             $name = $this->botExists($a);
             if(!$name) {
-                $this->pIrc->notice($nick, "Bot $a doesn't exist in my database!");
-                return $this->ERROR;
+                throw new CmdException("Bot $a doesn't exist in my database!");
             }
             if(array_search($name, $botson) !== false) {
-                $this->pIrc->notice($nick, "Bot $a is already online!");
-                return $this->ERROR;
+                throw new CmdException("Bot $a is already online!");
             }
             $startbots[] = $name;
         }
         if(!$newpid) {
-            $this->pIrc->notice($nick, "Attempting to start " . implode(', ', $startbots));
+            $r->notice("Attempting to start " . implode(', ', $startbots));
             startbots($startbots);
         } else {
-            $this->pIrc->notice($nick, "Attempting to start " . implode(', ', $startbots) . ' In a new process');
+            $r->notice("Attempting to start " . implode(', ', $startbots) . ' In a new process');
             exec("php leaf.php " . escapeshellcmd(implode(' ', $startbots)) . " > /dev/null");
         }
     }
     
-    function cmd_delbot($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if($argc < 1) {
-            return $this->BADARGS;
-        }
-        $name = $argv[0];
-        if($this->botExists($name) === false) {
-            $this->pIrc->notice($nick, "That bot $argv[0] does not exist");
-            return;
+    function cmd_delbot(CmdRequest $r) {
+        if($bot = $this->botExists($r->args['name']) === false) {
+            throw new CmdException("That bot {$r->args['name']} does not exist");
         }
         //need to delchan all channels on bot
         //which should correctly remove chan access
@@ -519,88 +444,71 @@ class admin extends Module {
         
         //for now we will use the cleanup function
         //until logs are all setup or something?
-        $this->gM('xnet')->sendRPC(null, null, $name, 'killbot', Array("Bot Deleted by $nick"));
-        try {
-            $stmt = $this->pMysql->prepare("DELETE FROM `bots` WHERE `name` = :name");
-            $stmt->execute(Array(':name'=>$name));
-            $stmt->closeCursor();
-            $bnick = $this->mq($name);
-            $this->pMysql->query("DROP TABLE `$bnick`");
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-        }
+        $this->gM('xnet')->sendRPC(null, null, $bot, 'killbot', Array("Bot Deleted by $r->nick"));
+
+        $stmt = $this->pMysql->prepare("DELETE FROM `bots` WHERE `name` = :name");
+        $stmt->execute(Array(':name'=>$bot));
+        $stmt->closeCursor();
+        $bnick = $this->mq($bot);
+        $this->pMysql->query("DROP TABLE `$bnick`");
+
         $del = $this->cleanaccess();
-        $this->pIrc->notice($nick, "Bot $name deleted, access $del cleaned up");
+        $r->notice("Bot $bot deleted, access $del cleaned up", 0);
     }
     
-    function cmd_addbot($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if($argc < 2) {
-            return $this->BADARGS;
+    function cmd_addbot(CmdRequest $r) {
+        if(!validNick($r->args['name'])) {
+            throw new CmdException("{$r->args['name']} is not a valid IRC nickname");
         }
-        if(!validNick($argv[0])) {
-            $this->pIrc->notice($nick, "$argv[0] is not a valid IRC nickname");
-            return $this->ERROR;
-        }
-        try {
-            $stmt = $this->pMysql->query("SELECT MAX(xmlport) FROM `bots`");
-            $row = $stmt->fetch();
-            $stmt->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-            return $this->ERROR;
-        }
-        $name = $argv[0];
-        if($this->botExists($name) !== false) {
-            $this->pIrc->notice($nick, "That bot already exists!");
-            return $this->ERROR;
+
+        $stmt = $this->pMysql->query("SELECT MAX(xmlport) FROM `bots`");
+        $row = $stmt->fetch();
+        $stmt->closeCursor();
+
+        $name = $r->args['name'];
+        if($this->botExists($name)) {
+            throw new CmdException("That bot already exists!");
         }
         
-        $ip = $argv[1];
+        $ip = $r->args['ip'];
         $xmlport = $row['MAX(xmlport)'] + 1;
         $chans = "1:#bots 1:#botstaff";
         // A bit ugly but it works for now
         $csets = 'a:1:{s:7:"channel";a:3:{s:8:"registar";s:11:"linuxsniper";s:6:"regged";i:1337163258;s:7:"suspend";N;}}';
-        try {
-            $stmta = $this->pMysql->prepare("INSERT INTO `bots` " .
-                "(name, ip, xmlport, chans) VALUES(:name,:ip,:xmlport,:chans)");
-            $stmta->execute(Array(
-                ':name'=>$name,':ip'=>$ip,':xmlport'=>$xmlport,':chans'=>$chans));
-            $stmta->closeCursor();
-            $bname = $this->mq($name);
-            $ourname = $this->mq($this->pIrc->nick);
-            $this->pMysql->query("CREATE TABLE `$bname` LIKE `$ourname`");
-            $stmtc = $this->pMysql->prepare("INSERT INTO `$bname` (name,settings) VALUES(:chan, :csets)");
-            $stmtc->execute(Array(':csets'=>$csets, ':chan'=>'#bots'));
-            $stmtc->execute(Array(':csets'=>$csets, ':chan'=>'#botstaff'));
-            $stmtc->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-        }
-        $this->pIrc->notice($nick, "Bot $name added with ip $ip and default values, use startbot to start it.");
+
+        $stmta = $this->pMysql->prepare("INSERT INTO `bots` " .
+            "(name, ip, xmlport, chans) VALUES(:name,:ip,:xmlport,:chans)");
+        $stmta->execute(Array(
+            ':name'=>$name,':ip'=>$ip,':xmlport'=>$xmlport,':chans'=>$chans));
+        $stmta->closeCursor();
+        $bname = $this->mq($name);
+        $ourname = $this->mq($this->pIrc->nick);
+        $this->pMysql->query("CREATE TABLE `$bname` LIKE `$ourname`");
+        $stmtc = $this->pMysql->prepare("INSERT INTO `$bname` (name,settings) VALUES(:chan, :csets)");
+        $stmtc->execute(Array(':csets'=>$csets, ':chan'=>'#bots'));
+        $stmtc->execute(Array(':csets'=>$csets, ':chan'=>'#botstaff'));
+        $stmtc->closeCursor();
+
+        $r->notice("Bot $name added with ip $ip and default values, use startbot to start it.");
     }
     
-    function botExists($name) {
+    function botExists($name): ?string {
         try {
             $stmt = $this->pMysql->prepare("SELECT `name` FROM `bots` WHERE `name` = :name");
             $stmt->execute(Array(':name'=>$name));
             $row = $stmt->fetch();
             if ($stmt->rowCount() > 0) {
+                $stmt->closeCursor();
                 return $row['name'];
             } else {
-                return false;
+                $stmt->closeCursor();
+                return null;
             }
-            $stmt->closeCursor();
         } catch (PDOException $e) {
             $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
             echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
             $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            return null;
         }
     }
     
@@ -639,58 +547,57 @@ class admin extends Module {
     }
     
     //needed this to cleanup old access into
-    function cmd_cleanaccess($nick, $chan, $msg) {
-        try {
-            $allchans = Array();
-            foreach ($this->pMysql->query("SELECT `chans` FROM `bots`") as $r) {
-                $cs = explode(' ', $r['chans']);
-                foreach ($cs as $css) {
-                    $allchans[substr($css, 2)] = substr($css, 2);
-                }
+    function cmd_cleanaccess(CmdRequest $r) {
+        $allchans = Array();
+        foreach ($this->pMysql->query("SELECT `chans` FROM `bots`") as $r) {
+            $cs = explode(' ', $r['chans']);
+            foreach ($cs as $css) {
+                $allchans[substr($css, 2)] = substr($css, 2);
             }
-            $deleted = '';
-            $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :chans WHERE `name` = :name");
-            foreach ($this->pMysql->query("SELECT `name`,`chans` FROM `users`") as $u) {
-                $chans = unserialize($u['chans']);
-                if (!is_array($chans)) {
-                    continue;
-                }
-                foreach ($chans as $c => $d) {
-                    if (!array_key_exists($c, $allchans)) {
-                        unset($chans[$c]);
-                        $deleted .= "$c ";
-                    }
-                }
-                $chans = serialize($chans);
-                if ($msg == 'CONFIRM') {
-                    $stmt->execute(Array(':chans'=>$chans,':name'=>$u['name']));
-                }
-            }
-            if ($msg == 'CONFIRM') {
-                $this->pIrc->notice($nick, "Deleted access for: $deleted");
-            } else {
-                $this->pIrc->notice($nick, "Would delete access for: $deleted");
-            }
-            $stmt->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
         }
+        $deleted = '';
+        $stmt = $this->pMysql->prepare("UPDATE `users` SET `chans` = :chans WHERE `name` = :name");
+        foreach ($this->pMysql->query("SELECT `name`,`chans` FROM `users`") as $u) {
+            $chans = unserialize($u['chans']);
+            if (!is_array($chans)) {
+                continue;
+            }
+            foreach ($chans as $c => $d) {
+                if (!array_key_exists($c, $allchans)) {
+                    unset($chans[$c]);
+                    $deleted .= "$c ";
+                }
+            }
+            $chans = serialize($chans);
+            if ($r->args['CONFIRM'] == 'CONFIRM') {
+                $stmt->execute(Array(':chans'=>$chans,':name'=>$u['name']));
+            }
+        }
+        if ($r->args['CONFIRM'] == 'CONFIRM') {
+            $r->notice("Deleted access for: $deleted");
+        } else {
+            $r->notice("Would delete access for: $deleted");
+        }
+        $stmt->closeCursor();
     }
     
-    function cmd_info($nick, $chan, $msg) {
-        $msg = trim($msg);
-        if(cisin($msg, ' ')) {
-            return $this->BADARGS;
-        }
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
+    function cmd_info(CmdRequest $r) {
+        var_dump($r->pm);
+        var_dump($r->args);
+        var_dump($r->chan);
+
+        $msg = trim($r->args[0]);
+        var_dump($msg);
         $q = '';
         $qt = 'chan';
-        if($msg == '') {
-            $q = strtolower($chan);
-            $qt = 'chan';
+        if($msg == null) {
+            if(!$r->pm || $r->chan[0] == '#') {
+                $q = strtolower($r->chan);
+                $qt = 'chan';
+            } else { //could be pm
+                $q = $r->nick;
+                $qt = 'nick';
+            }
         } else {
             if($msg[0] == '*') {
                 $qt = 'account';
@@ -706,21 +613,23 @@ class admin extends Module {
             }
         }
         if($qt == 'chan') {
-            $this->gM('xnet')->sendToAll($this, 'chanInfoRecv', 'chaninfo', $q, Array($nick, $chan, $hand, $q));
+            $this->gM('xnet')->sendToAll($this, 'chanInfoRecv', 'chaninfo', $q, Array($r, $q));
             return;
         }
         if($qt == 'account' && !$this->gM('user')->hand_exists($q)) {
-            $this->pIrc->notice($nick, "Account \2$q\2 has not been registered.");
-            return;
+            throw new CmdException("Account \2$q\2 has not been registered.");
         }
         if($qt == 'account' || $qt == 'nick') {
-            $this->gM('xnet')->sendToAll($this, 'nickhandInfoRecv', 'nickhandinfo', Array($q, $qt), Array($nick, $chan, $hand, $q, $qt));
+            $this->gM('xnet')->sendToAll($this, 'nickhandInfoRecv', 'nickhandinfo', Array($q, $qt), Array($r, $q, $qt));
             return;
         }
     }
     
     function nickhandInfoRecv($data, $extra) {
-        list($nick, $c, $hand, $q, $qt) = $extra;
+        /**
+         * @var CmdRequest $r
+         */
+        list($r, $q, $qt) = $extra;
         $nicks = Array();
         $chans = Array();
         $account = null;
@@ -793,7 +702,7 @@ class admin extends Module {
         if($host == null) {
             $out .= "\2$q\2 is not visible to any bots.";
         } else {
-            $fchans == '';
+            $fchans = '';
             foreach($chans as $c => $m) {
                 $fchans .= implode('', $m['modes']) . $c . ' ';
             }
@@ -803,7 +712,7 @@ class admin extends Module {
             $out .= "\2Nicknames:\2 " . implode(', ', $nicks) .
                 " \2Channels:\2 $fchans";
         }
-        $this->pIrc->notice($nick, $out, 1, 1);
+        $r->notice($out, 1, 1);
     }
     
     function rpc_killbot($params) {
@@ -857,9 +766,10 @@ class admin extends Module {
     }
     
     function chanInfoRecv($data, $extra) {
-        var_dump($data);
-        var_dump($extra);
-        list($nick, $c, $hand, $q) = $extra;
+        /**
+         * @var CmdRequest $r
+         */
+        list($r, $q) = $extra;
         $wehave_dChan = false;
         $wehave_chan = false;
         $dChan_bot = null;
@@ -973,8 +883,8 @@ class admin extends Module {
             $createtime = strftime('%D %T', $chan['createTime']);
             $chan_out .= "\2Channel Created:\2 $createtime \2Modes:\2 $modes \2Idlers:\2 $idlers";
         }
-        $this->pIrc->notice($nick, $dChan_out,1,1);
-        $this->pIrc->notice($nick, $chan_out,1,1);
+        $r->notice($dChan_out,1,1);
+        $r->notice($chan_out,1,1);
     }
     
     function rpc_chaninfo($chan) {
@@ -996,27 +906,27 @@ class admin extends Module {
         return $out;
     }
     
-    function cmd_forceauth($nick, $target, $msg) {
+    function cmd_forceauth(CmdRequest $r) {
         $this->pIrc->raw($this->pIrc->authserv);
     }
     
-    function cmd_quit($nick, $chan, $msg) {
-        $qmsg = "Bot shutdown by $nick";
-        if($msg != null) {
-            $qmsg .= " ($msg)";
+    function cmd_quit(CmdRequest $r) {
+        $qmsg = "Bot shutdown by $r->nick";
+        if($r->args['reason'] != null) {
+            $qmsg .= " ({$r->args['reason']})";
         }
         $this->pIrc->killBot($qmsg);
     }
     
-    function cmd_global($nick, $chan, $msg) {
-        $this->gM('xnet')->sendToAll(null, null, 'globalmsg', Array($nick, $msg));
+    function cmd_global(CmdRequest $r) {
+        $this->gM('xnet')->sendToAll(null, null, 'globalmsg', Array($r->nick, $r->args['msg']));
     }
     
-    function cmd_bots($nick, $chan, $msg) {
-        $this->gM('xnet')->sendToAll($this, 'botsCB', 'botinfo', null, Array($nick, $chan));
+    function cmd_bots(CmdRequest $r) {
+        $this->gM('xnet')->sendToAll($this, 'botsCB', 'botinfo', null, $r);
     }
     
-    function botsCB($data, $ex) {
+    function botsCB($data, CmdRequest $r) {
         $on = Array();
         $off = Array();
         $on_out = '';
@@ -1032,15 +942,15 @@ class admin extends Module {
             $on_out .= " \2Pid($pid, $info[mem]):\2 " . implode(' ', $info['bots']);
         }
         $off = implode(', ', $off);
-        $this->pIrc->msg($ex[1], "\2Online:\2$on_out");
-        $this->pIrc->msg($ex[1], "\2Offline:\2 $off");
+        $r->notice("\2Online:\2$on_out");
+        $r->notice("\2Offline:\2 $off");
     }
     
-    function cmd_bnstats($nick, $chan, $msg) {
-        $this->gM('xnet')->sendToAll($this, 'bnstatsCB', 'botinfo', null, Array($nick, $chan));
+    function cmd_bnstats(CmdRequest $r) {
+        $this->gM('xnet')->sendToAll($this, 'bnstatsCB', 'botinfo', null, $r);
     }
     
-    function bnstatsCB($data, $ex) {
+    function bnstatsCB($data, CmdRequest $r) {
         $nicks = Array();
         $chans = Array();
         foreach($data as $d) {
@@ -1063,17 +973,17 @@ class admin extends Module {
             $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
         }
         $uc= $uc['count(*)'];
-        $this->pIrc->msg($ex[1], "\2Total unique channels joined:\2 " . count($chans) . " \2Total unique nicks seen:\2 " . count($nicks) . " \2Registered Accounts:\2 $uc");
+        $r->reply("\2Total unique channels joined:\2 " . count($chans) . " \2Total unique nicks seen:\2 " . count($nicks) . " \2Registered Accounts:\2 $uc");
     }
     
-    function cmd_botinfo($nick, $chan, $msg) {
+    function cmd_botinfo(CmdRequest $r) {
         $in = convert($this->pSockets->sockets[intval($this->pIrc->sock)]['rBytes']);
         $out = convert($this->pSockets->sockets[intval($this->pIrc->sock)]['sBytes']);
         $tin = convert($this->pSockets->rBytes);
         $tout = convert($this->pSockets->sBytes);
         $contime = Duration_toString(time() - $this->pSockets->sockets[intval($this->pIrc->sock)]['connectTime']);
         $pid = getmypid();
-        $this->pIrc->msg($chan, "Connected: $contime IRC-Recv: $in IRC-Sent: $out Total-Recv: $tin Total-out: $tout Pid: $pid Memory usage: " . convert(memory_get_usage(true)));
+        $r->reply("Connected: $contime IRC-Recv: $in IRC-Sent: $out Total-Recv: $tin Total-out: $tout Pid: $pid Memory usage: " . convert(memory_get_usage(true)));
     }
 
     function rpc_botinfo($params) {
@@ -1101,4 +1011,4 @@ class admin extends Module {
         return;
     }
 }
-?>
+

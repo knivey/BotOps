@@ -1,0 +1,17 @@
+description: Channel List database
+require: [CmdReg]
+irc:
+    hooks:
+        h_321: {hook: 321}
+        h_322: {hook: 322}
+        h_323: {hook: 323}
+Modules:
+    CmdReg:
+        funcs:
+            cmd_csearch: {syntax: "[chan]", desc: Peek at a channel}
+            cmd_listinfo: {desc: listdb info}
+            cmd_listquiet: {desc: toggle listdb quitemode}
+        binds:
+            csearch: {func: cmd_csearch}
+            listinfo: {func: cmd_listinfo}
+            listquiet: {func: cmd_listquiet}

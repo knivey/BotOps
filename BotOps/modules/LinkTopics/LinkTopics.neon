@@ -1,0 +1,9 @@
+description: HTTP links scanner
+require: [CmdReg]
+irc:
+    hooks:
+        inmsg: {hook: msg}
+Modules:
+    SetReg:
+        channel:
+            scan: {access: 1, desc: "Scans messages for links and reports what they are", opts: [default: "on", "on", "off"]}

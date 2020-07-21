@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 require_once('modules/Module.inc');
 require_once('Tools/Tools.php');
 
@@ -37,25 +37,25 @@ class listdb extends Module {
         }
     }
     
-    function cmd_csearch($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
+    function cmd_csearch(CmdRequest $r) {
+        $r->notice("Searching not implemented yet.");
     }
     
-    function cmd_listinfo($nick, $chan, $msg) {
-        $this->pIrc->msg($chan, "I have " . count($this->nlist) . " Channels in the listdb");
+    function cmd_listinfo(CmdRequest $r) {
+        $r->reply("I have " . count($this->nlist) . " Channels in the listdb");
     }
     
-    function cmd_listquiet($nick, $chan, $msg) {
+    function cmd_listquiet(CmdRequest $r) {
         if($this->qm) {
             $this->qm = false;
             $this->delay = 7;
             $this->ntime = time() + 4;
-            $this->pIrc->msg($chan, "List display ON, db update set to 7s");
+            $r->reply("List display ON, db update set to 7s", 0, 1);
         } else {
             $this->qm = true;
             $this->delay = 350;
             $this->ntime = time() + 350;
-            $this->pIrc->msg($chan, "List display off, db update set to 5m");
+            $r->reply("List display off, db update set to 5m", 0, 1);
         }
     }
     

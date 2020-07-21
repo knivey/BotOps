@@ -1,0 +1,33 @@
+description: Provide many internal tools and our $var system
+require: [user]
+slots:
+    loaded: {from: ModuleManager, name: load}
+    reloaded: {from: ModuleManager, name: reload}
+    unloaded: {from: ModuleManager, name: unload}
+Modules:
+    CmdReg:
+        funcs:
+            cmd_say: {syntax: <text>..., desc: Say a line of text after parsing it.}
+            cmd_act: {syntax: <text>..., desc: /me a line of text after parsing it.}
+        binds:
+            say: {func: cmd_say}
+            act: {func: cmd_act}
+    ParseUtil:
+        vars:
+            date: {func: v_date, desc: Current date/time}
+            rainbow: {func: v_rainbow, desc: RainbowText, args: [text]}
+            arg: {func: v_a, desc: Command's args like mirc's $1- stuff, args: ["<argnum>[-]"]}
+            bar: {func: v_bar, desc: Bar style meter, args: [<lowNum>, <highNum>]}
+            rand: {func: v_rand, desc: Random number, args: [<lowNum>, <highNum>]}
+            random: {func: v_rand, desc: Random number, args: [<lowNum>, <highNum>]}
+            nick: {func: v_nick, desc: nick using command}
+            rnick: {func: v_rnick, desc: random nickname in the channel}
+            chan: {func: v_target, desc: chan command is used in}
+            na: {func: v_na, desc: nick or args if set}
+            colorcap: {func: v_colorcap, desc: capitalize with color, args: [<text>, <capc>, <textc>]}
+            host: {func: v_host, desc: users hostmask}
+            rnoun: {func: v_rnoun, desc: random noun}
+            rverb: {func: v_rverb, desc: random verb}
+            radj: {func: v_radj, desc: random adjective}
+            trig: {func: v_trig, desc: channel trigger}
+            bot: {func: v_bot, desc: bot name}

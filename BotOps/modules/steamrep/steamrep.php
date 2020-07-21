@@ -1,27 +1,22 @@
 <?php
-
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 require_once('Tools/simple_html_dom.php');
 require_once('modules/Module.inc');
 require_once('Http.inc');
 
 class steamrep extends Module
 {
-
-    public function cmd_steamrep($nick, $chan, $query)
+    public function cmd_steamrep(CmdRequest $r)
     {
-        if (empty($query)) {
-            return $this->BADARGS;
-        }
-
-        $q            = urlencode(htmlentities($query));
+        $q            = urlencode(htmlentities($r->args[0]));
         $steamrepHttp = new Http($this->pSockets, $this, 'steamrepRead');
-        $steamrepHttp->getQuery("http://steamrep.com/search?q=$q", $chan);
+        $steamrepHttp->getQuery("http://steamrep.com/search?q=$q", $r);
     }
 
-    public function steamrepRead($data, $chan)
+    public function steamrepRead($data, CmdRequest $r)
     {
         if (is_array($data)) {
-            $this->pIrc->msg($chan, "\2SteamRep:\2 Error ($data[0]) $data[1]");
+            $r->reply("\2SteamRep:\2 Error ($data[0]) $data[1]");
             return;
         }
 
@@ -29,9 +24,7 @@ class steamrep extends Module
 
         $name = @$doc->getElementById('steamname')->plaintext;
         if ($name == NULL) {
-            $this->pIrc->msg($chan,
-                             "\2:SteamRep:\2 Sorry, the specified ID " .
-                "was not found");
+            $r->reply("\2:SteamRep:\2 Sorry, the specified ID was not found");
             return;
         }
         $name = trim($name);
@@ -65,9 +58,8 @@ class steamrep extends Module
 
         $out = str_replace("\n", ' ', str_replace("\r", ' ', $out));
         $out = html_entity_decode($out);
-        $this->pIrc->msg($chan, $out);
+        $r->reply($out);
     }
 
 }
 
-?>

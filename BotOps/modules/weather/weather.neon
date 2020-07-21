@@ -1,0 +1,11 @@
+description: Weather conditions & forecast
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+            cmd_weather: {syntax: "[location]...", desc: "Lookup weather info query can contain -auto -us -uk2 -ca -si to override units"}
+        binds:
+            weather: {func: cmd_weather}
+    SetReg:
+        account:
+            units: {desc: "Units to display results in", opts: [default: "auto", "auto", "us", "uk2", "ca", "si", "imperial", "metric"]}

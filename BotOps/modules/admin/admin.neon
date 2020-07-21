@@ -1,0 +1,63 @@
+description: "admin commands"
+
+XMLRPC:
+    botinfo: rpc_botinfo
+    chaninfo: rpc_chaninfo
+    nickhandinfo: rpc_nickhandinfo
+    killbot: rpc_killbot
+    rename: rpc_rename
+    loadfilters: rpc_loadfilters
+
+slots:
+    loaded: {from: ModuleManager, name: load}
+    reloaded: {from: ModuleManager, name: reload}
+
+irc:
+    hooks:
+        h_311: {hook: '311', mask: ""}
+        h_319: {hook: '319'}
+        h_301: {hook: '301'}
+        h_317: {hook: '317'}
+        h_330: {hook: '330'}
+        h_318: {hook: '318'}
+        h_402: {hook: '402'}
+Modules:
+    CmdReg:
+        funcs:
+            cmd_forceauth: {desc: force the bot to send its authserv line, pmonly: true}
+            cmd_botinfo: {desc: show some info}
+            cmd_quit: {syntax: "[reason]...", desc: Kill the bot}
+            cmd_bots: {desc: list bots}
+            cmd_info: {syntax: "[#chan|nick|*account]", desc: show information}
+            cmd_startbot: {syntax: "<bots>...", desc: "start bot(s), pass -newpid to start in new proc"}
+            cmd_addbot: {syntax: <name> <ip>, desc: add a bot}
+            cmd_delbot: {syntax: <name>, desc: del a bot}
+            cmd_setbot: {syntax: "<name> [val]...", desc: bot settings}
+            cmd_global: {syntax: <msg>..., desc: Message all channels}
+            cmd_switchbot: {syntax: <oldbot> <newbot>, desc: change bot assigned to chan, needchan: true}
+            cmd_clonescan: {desc: scan channel for clones, needchan: true}
+            cmd_whois: {syntax: <nick>, desc: do a /whois on user}
+            cmd_cleanaccess: {syntax: "[CONFIRM]", desc: remove access for channels that dont exist}
+            cmd_addfilter: {syntax: <mask>, desc: Add a filter to prevent bot from sending messages matching the mask}
+            cmd_delfilter: {syntax: <id>, desc: Delete a filter}
+            cmd_listfilters: {desc: Show the web link to view the filter list}
+            cmd_bnstats: {desc: Show some botnet stats}
+        binds:
+            forceauth: {access: O, func: cmd_forceauth, args: "", loglvl: 3}
+            botinfo: {func: cmd_botinfo}
+            quit: {access: D, func: cmd_quit, loglvl: 3}
+            bots: {access: O, func: cmd_bots}
+            info: {func: cmd_info, loglvl: 2}
+            startbot: {access: S, func: cmd_startbot, loglvl: 3}
+            addbot: {access: S, func: cmd_addbot, loglvl: 2}
+            delbot: {access: S, func: cmd_delbot, loglvl: 2}
+            setbot: {access: S, func: cmd_setbot, loglvl: 2}
+            global: {access: S, func: cmd_global, loglvl: 3}
+            switchbot: {access: O, func: cmd_switchbot, loglvl: 2}
+            clonescan: {func: cmd_clonescan}
+            whois: {func: cmd_whois}
+            cleanaccess: {access: D, func: cmd_cleanaccess, loglvl: 3}
+            addfilter: {access: S, func: cmd_addfilter, loglvl: 3}
+            delfilter: {access: S, func: cmd_delfilter, loglvl: 3}
+            listfilters: {access: O, func: cmd_listfilters}
+            bnstats: {func: cmd_bnstats}

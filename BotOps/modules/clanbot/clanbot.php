@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 class clanbot extends Module
 {
 
@@ -11,83 +11,53 @@ class clanbot extends Module
         'chanserv',
     );
 
-    function cmd_bindalias($nick, $chan, $msg)
+    function cmd_bindalias(CmdRequest $r)
     {
-        $hand = $this->gM('user')->byNick($nick);
-        list($argc, $argv) = niceArgs($msg);
-        if ($argc < 2) {
-            return $this->BADARGS;
-        }
-        $alias    = $argv[0];
-        $bind     = $argv[1];
-        $bindInfo = $this->getBind($chan, $bind);
+        $alias    = $r->args['alias'];
+        $bind     = $r->args['bind'];
+        $bindInfo = $this->getBind($r->chan, $bind);
         if (!$bindInfo) {
-            $this->pIrc->notice($nick, "No bind named $bind found.", 0, 1);
-            return $this->ERROR;
+            throw new CmdException("No bind named $bind found.", 0, 1);
         }
         if (array_key_exists('alias', $bindInfo) && $bindInfo['alias']) {
-            $this->pIrc->notice($nick,
-                                "$bind is itself an alias, aliasing to $bindInfo[value] instead.",
-                                0, 1);
+            $r->notice("$bind is itself an alias, creating an alias to $bindInfo[value] instead.", 0, 1);
             $bind = $bindInfo['value'];
-            $bindInfo = $this->getBind($chan, $bindInfo['value']);
+            $bindInfo = $this->getBind($r->chan, $bindInfo['value']);
             if (!$bindInfo) {
-                $this->pIrc->notice($nick,
-                                    "An unexpected error occurred creating the alias.");
-                $this->pIrc->msg('#botstaff',
-                                 "An unexpected error occurred creating an alias in $chan.");
-                return $this->ERROR;
+                throw new CmdException("An unexpected error occurred creating the alias.");
             }
         }
-        if ($this->getBind($chan, $alias) != null) {
-            $this->pIrc->notice($nick,
-                                "There is already a bind named $alias in $chan, unbind it first.",
-                                0, 1);
-            return $this->ERROR;
+        if ($this->getBind($r->chan, $alias) != null) {
+            throw new CmdException("There is already a bind named $alias in $r->chan, unbind it first.");
         }
         $newBind = Array(
             'value'  => strtolower($bind),
             'name'   => $alias,
-            'by'     => $hand,
+            'by'     => $r->account,
             'date'   => time(),
             'type'   => 'default',
             'hidden' => true,
             'alias'  => true,
             'count'  => 0
         );
-        $this->setBind($chan, $alias, $newBind);
-        $this->pIrc->notice($nick, "Alias added! $alias now points to $bind", 0,
-                            1);
+        $this->setBind($r->chan, $alias, $newBind);
+        $r->notice("Alias added! $alias now points to $bind", 0, 1);
     }
 
-    function cmd_hidebind($nick, $chan, $msg)
+    function cmd_hidebind(CmdRequest $r)
     {
-        list($argc, $argv) = niceArgs($msg);
-        if ($argc < 1) {
-            return $this->BADARGS;
+        if (!$this->setBindHidden($r->chan, $r->args['bind'], true)) {
+            throw new CmdException("No bind named {$r->args['bind']} found.");
         }
-        if (!$this->setBindHidden($chan, $argv[0], true)) {
-            $this->pIrc->notice($nick, "No bind named $argv[0] found.", 0, 1);
-            return $this->ERROR;
-        }
-        $this->pIrc->notice($nick,
-                            $argv[0] . ' is now hidden from $binds and $tbinds',
-                            1, 1);
+        $r->notice($r->args['bind'] . ' is now hidden from $binds and $tbinds', 1, 1);
     }
 
-    function cmd_unhidebind($nick, $chan, $msg)
+    function cmd_unhidebind(CmdRequest $r)
     {
-        list($argc, $argv) = niceArgs($msg);
-        if ($argc < 1) {
-            return $this->BADARGS;
+        if (!$this->setBindHidden($r->chan, $r->args['bind'], false)) {
+            throw new CmdException("No bind named {$r->args['bind']} found.");
         }
-        if (!$this->setBindHidden($chan, $argv[0], false)) {
-            $this->pIrc->notice($nick, "No bind named $argv[0] found.", 0, 1);
-            return $this->ERROR;
-        }
-        $this->pIrc->notice($nick,
-                            $argv[0] . ' is no longer hidden in $binds and $tbinds',
-                            1, 1);
+        $r->notice($r->args['bind'] . ' is no longer hidden in $binds and $tbinds', 1, 1);
     }
 
     function setBindHidden($chan, $bind, $val)
@@ -115,7 +85,7 @@ class clanbot extends Module
      * checks if our settings exist on the channel
      * if not then create them
      */
-    function checkInit($chan)
+    function checkInit(string $chan)
     {
         $sets = $this->gM('channel')->getSet($chan, 'clanbot', 'binds');
         if ($sets != null && is_array($sets)) {
@@ -175,57 +145,42 @@ class clanbot extends Module
         $this->gM('channel')->chgSet($chan, 'clanbot', 'binds', $sets);
     }
 
-    function cmd_bind($nick, $chan, $arg2)
+    function cmd_bind(CmdRequest $r)
     {
-        $arg      = explode(' ', $arg2); // Need to preserve spacing of content
-        $host     = $this->pIrc->n2h($nick);
-        $hand     = $this->gM('user')->byHost($host);
-        $access   = $this->gM('user')->access($hand, $chan);
-        $override = $this->gM('user')->hasOverride($hand);
-
-        if (count($arg) < 2) {
-            return $this->BADARGS;
-        }
-        $bind    = array_shift($arg);
-        $value   = implode(' ', $arg);
+        $bind = $r->args['name'];
+        $value = $r->args['value'];
         //check if the bind exists
-        $newBind = $this->getBind($chan, $bind);
+        $newBind = $this->getBind($r->chan, $bind);
         if ($newBind == null) {
-            $this->addBind($value, $bind, $hand, $chan);
-            $reply = "Bind $bind has been added";
-            $this->pIrc->notice($nick, $reply, 0, 1);
-            return $this->OK;
+            $this->addBind($value, $bind, $r->account, $r->chan);
+            $r->notice("Bind $bind has been added", 0, 1);
+            return;
         }
         if (array_key_exists('alias', $newBind) && $newBind['alias']) {
             $a = $newBind['value'];
-            $newBind = $this->getBind($chan, $newBind['value']);
+            $newBind = $this->getBind($r->chan, $newBind['value']);
             if ($newBind == null) {
-                $this->addBind($value, $bind, $hand, $chan);
-                $reply = "Bind $bind has been added";
-                $this->pIrc->notice($nick, $reply, 0, 1);
-                return $this->OK;
+                $this->addBind($value, $bind, $r->account, $r->chan);
+                $r->notice("Bind $bind has been added", 0, 1);
+                return;
             }
             $bind = $a;
         }
         $newBind['name']  = $bind;
         $newBind['value'] = $value;
-        $newBind['by']    = $hand;
+        $newBind['by']    = $r->account;
         $newBind['date']  = time();
-        $reply            = "Bind $bind has been updated";
-        $rv               = $this->OK;
-        if ($newBind['type'] == 'chanserv' && $access < 5) {
-            if ($override) {
-                $rv = $this->OK | $this->OVERRIDE;
+        if ($newBind['type'] == 'chanserv' && $r->access < 5) {
+            if ($r->hasoverride) {
+                $r->override = true;
             } else {
-                $this->pIrc->notice($nick,
-                                    "You need level 5 access to modify chanserv bindtypes.");
-                return $this->ERROR;
+                throw new CmdException("You need level 5 access to modify chanserv bindtypes.");
             }
         }
 
-        $this->setBind($chan, $bind, $newBind);
-        $this->pIrc->notice($nick, $reply);
-        return $rv;
+        $this->setBind($r->chan, $bind, $newBind);
+        $r->notice("Bind $bind has been updated");
+        return $r;
     }
 
     function addBind($value, $bind, $hand, $chan)
@@ -303,81 +258,59 @@ class clanbot extends Module
         return true;
     }
 
-    function cmd_unbind($nick, $target, $arg2)
+    function cmd_unbind(CmdRequest $r)
     {
-        $arg  = explode(' ', $arg2);
-        $chan = strtolower($target);
-        if ($arg2 == '') {
-            return $this->BADARGS;
-        }
-        $bindInfo = $this->getBind($chan, $arg[0]);
+        $bindInfo = $this->getBind($r->chan, $r->args['bind']);
         if ($bindInfo == null) {
-            $this->pIrc->notice($nick, "Bind $arg[0] does not exist");
-            return $this->ERROR;
+            throw new CmdException("Bind {$r->args['bind']} does not exist");
         }
-        $this->delBind($chan, $arg[0]);
-        $this->pIrc->notice($nick, "Bind $arg[0] has been removed");
+        $this->delBind($r->chan, $r->args['bind']);
+        $r->notice("Bind {$r->args['bind']} has been removed", 0, 1);
     }
 
-    function cmd_bindtype($nick, $chan, $msg)
+    function cmd_bindtype(CmdRequest $r)
     {
-        list($argc, $argv) = niceArgs($msg);
-        $hand     = $this->gM('user')->byNick($nick);
-        $access   = $this->gM('user')->access($hand, $chan);
-        $override = $this->gM('user')->hasOverride($hand);
-        if ($argc < 1) {
-            return $this->BADARGS;
-        }
-
-        $bind = $argv[0];
-
-        $bindInfo = $this->getBind($chan, $bind);
+        $bind = $r->args['bind'];
+        $bindInfo = $this->getBind($r->chan, $bind);
         if ($bindInfo == null) {
-            $this->pIrc->notice($nick, "Bind $bind does not exist");
-            return $this->ERROR;
+            throw new CmdException("Bind $bind does not exist");
         }
 
         if (array_key_exists('alias', $bindInfo) && $bindInfo['alias']) {
             $bind = $bindInfo['value'];
-            $bindInfo = $this->getBind($chan, $bindInfo['value']);
+            $bindInfo = $this->getBind($r->chan, $bindInfo['value']);
             if ($bindInfo == null) {
-                $this->pIrc->notice($nick, "Bind $bind not found.", 0, 1);
-                return $this->ERROR;
+                throw new CmdException("Bind $bind not found.");
             }
         }
 
-        if ($argc < 2) {
-            $this->pIrc->notice($nick, "Bindtype for $bind is $bindInfo[type]");
-            return $this->OK;
+        if (!isset($r->args[1])) {
+            $r->notice("Bindtype for $bind is $bindInfo[type]", 0, 1);
+            return;
         }
 
-        $type = strtolower($argv[1]);
+        $type = strtolower($r->args[1]);
 
         if (!in_array($type, $this->bindTypes)) {
             $types = implode(',', $this->bindTypes);
-            $this->pIrc->notice($nick,
-                                "Bind please choose a correct type: $types");
-            return $this->ERROR;
+            throw new CmdException("Bind please choose a correct type: $types");
         }
 
-        $rv = $this->OK;
-        if ($type == 'chanserv' && $access < 5) {
-            if ($override) {
-                $rv = $this->OK | $this->OVERRIDE;
+        if ($type == 'chanserv' && $r->access < 5) {
+            if ($r->hasoverride) {
+                $r->override = true;
             } else {
-                $this->pIrc->notice($nick,
-                                    "You need level 5 access to modify chanserv bindtypes.");
-                return $this->ERROR;
+                throw new CmdException("You need level 5 access to modify chanserv bindtypes.");
             }
         }
 
         $bindInfo['type'] = $type;
-        $bindInfo['by']   = $hand;
+        $bindInfo['by']   = $r->account;
         $bindInfo['date'] = time();
-        $this->setBind($chan, $bind, $bindInfo);
+        $this->setBind($r->chan, $bind, $bindInfo);
 
-        $this->pIrc->notice($nick, "Bindtype for $bind is now set to $type");
-        return $rv;
+        $r->notice("Bindtype for $bind is now set to $type", 0, 1);
+        return $r;
     }
 
     function v_binds()
@@ -410,9 +343,9 @@ class clanbot extends Module
         return trim($list);
     }
 
-    function cmd_binds($nick, $chan, $arg2)
+    function cmd_binds(CmdRequest $r)
     {
-        $allbinds = $this->getAllBinds($chan);
+        $allbinds = $this->getAllBinds($r->chan);
         $binds    = Array();
         $aliases  = Array();
         foreach ($allbinds as $bind) {
@@ -422,38 +355,31 @@ class clanbot extends Module
                 $binds[] = $bind['name'];
             }
         }
-        $this->pIrc->notice($nick, "\2Binds:\2 " . implode(', ', $binds));
+        $r->notice("\2Binds:\2 " . implode(', ', $binds), 0, 1);
         if (!empty($aliases)) {
-            $this->pIrc->notice($nick, "\2Aliases:\2 " . implode(', ', $aliases));
+            $r->notice("\2Aliases:\2 " . implode(', ', $aliases), 0, 1);
         }
     }
 
-    function cmd_bindinfo($nick, $chan, $arg2)
+    function cmd_bindinfo(CmdRequest $r)
     {
-        $arg = explode(' ', $arg2);
-        if ($arg2 == '') {
-            return $this->BADARGS;
-        }
-        $bindInfo = $this->getBind($chan, $arg[0]);
+        $bind = $r->args['bind'];
+        $bindInfo = $this->getBind($r->chan, $bind);
         if ($bindInfo == null) {
-            $this->pIrc->notice($nick, "Bind $arg[0] does not exist");
-            return $this->ERROR;
+            throw new CmdException("Bind $bind does not exist");
         }
 
         $extra = '';
-
         if (array_key_exists('hidden', $bindInfo) && $bindInfo['hidden']) {
             $extra = "Hidden: true ";
         }
 
         if (array_key_exists('alias', $bindInfo) && $bindInfo['alias']) {
-            $this->pIrc->notice($nick,
-                                "$bindInfo[name] is an alias for $bindInfo[value]");
-            return $this->OK;
+            $r->notice("$bindInfo[name] is an alias for $bindInfo[value]", 0, 1);
+            return;
         }
 
-        $this->pIrc->notice($nick,
-                            "Bind $bindInfo[name] of type $bindInfo[type]" .
+        $r->notice("Bind $bindInfo[name] of type $bindInfo[type]" .
             " last changed " . strftime('%D', $bindInfo['date']) .
             " by $bindInfo[by] and has been used $bindInfo[count] times $extra" .
             "Value: $bindInfo[value]", 1, 1);
@@ -461,4 +387,4 @@ class clanbot extends Module
 
 }
 
-?>
+

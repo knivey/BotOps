@@ -1,0 +1,19 @@
+description: Tests and Development
+XMLRPC:
+    test: rpc_test
+    msg: rpc_msg
+Modules:
+    CmdReg:
+        funcs:
+            cmd_eval: {syntax: <code>..., desc: evaluate php code}
+            cmd_ced: {syntax: <code>..., desc: evaluate php code and dump to chan}
+            cmd_shell: {syntax: <command>..., desc: run stuff in tickers}
+            cmd_version: {desc: display version}
+            cmd_sysinfo: {desc: show some sys info}
+        binds:
+            eval: {access: D, func: cmd_eval, loglvl: 3}
+            ced: {access: D, func: cmd_ced, loglvl: 3}
+            shell: {access: D, func: cmd_shell, loglvl: 3}
+            version: {func: cmd_version}
+            sysinfo: {func: cmd_sysinfo}
+

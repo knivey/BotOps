@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 require_once('modules/Module.inc');
 require_once('Tools/Tools.php');
 
@@ -8,7 +8,7 @@ require_once('Tools/Tools.php');
  * Store topic bans users modes etc
  */
 class ChanStats extends Module { 
-    function cmd_cstats($n,$c,$m) {
+    function cmd_cstats(CmdRequest $r) {
         ///home/botops/pisg-0.73/pisg --cfg PicLocation="gfx/" -ne GameSurge 
         //-ch \#pandabears -f pircbot -l /home/botops/BotNetwork/chanlogs/#pandabears.log
         //-o /home/botops/public_html/chanstats/pandabears.html
@@ -16,11 +16,11 @@ class ChanStats extends Module {
         //need to sanitize channel names for bash before can do this
         //also note if theres a cfg file in pisg dir it will run it
         //`/home/botops/pisg-0.73/pisg --cfg PicLocation="gfx/" -ne GameSurge -ch `;
-        $c = urlencode(strtolower(ridfirst($c)));
-        $this->pIrc->notice($n, "Channels stats at http://botops.net/chanstats/$c.html");
+        $c = urlencode(strtolower(ridfirst($r->chan)));
+        $r->notice("Channels stats at http://botops.net/chanstats/$c.html");
     }
     
-    function cmd_forcestats($n,$c,$m) {
+    function cmd_forcestats(CmdRequest $r) {
         $this->genStats();
     }
     
@@ -37,7 +37,7 @@ class ChanStats extends Module {
                 }
             }
         }
-        $this->nextGen = strtotime('1/1/2020 00:00:00');
+        $this->nextGen = strtotime('1/1/3020 00:00:00');
         $this->msg('#botstaff', "Stats Generator failed to update next runtime, setting to run on $this->nextGen");
     }
     

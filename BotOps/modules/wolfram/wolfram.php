@@ -1,21 +1,21 @@
 <?php
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 
 require_once('modules/Module.inc');
 require_once('Http.inc');
 
 class wolfram extends Module {
-	
     public $apiurl = 'http://api.wolframalpha.com/v2/query?input=';
     
-    public function cmd_calc($nick, $target, $arg2) {
+    public function cmd_calc(CmdRequest $r) {
     	list($error, $key) = $this->pGetConfig('key');
     	if($error) {
-    		$this->pIrc->msg($target, "Problem Wolframing: $error");
+    		throw new CmdException($error);
     		return;
     	}
     	
         $lol = new Http($this->pSockets, $this, 'waCalc', null, 15);
-        $lol->getQuery($this->apiurl . urlencode(htmlentities($arg2)) . $key . '&format=plaintext', $target);
+        $lol->getQuery($this->apiurl . urlencode(htmlentities($r->args[0])) . $key . '&format=plaintext', $r->chan);
     }
     
     public function waCalc($data, $target) {
@@ -49,10 +49,13 @@ class wolfram extends Module {
                 //Or will be the first pod
                 if($count == 0) {
                     //input
-                    $resa = $pod->subpod->plaintext;
+                    $resa = str_replace("\n", "; ", $pod->subpod->plaintext);
                 }
                 if($count == 1) {
-                    $resb = str_replace("\n", "\2;\2 ", $pod->subpod->plaintext);
+                    $resb = str_replace("\n", "; ", $pod->subpod->plaintext);
+                }
+                if ($count != 1 && $pod['id'] == 'DecimalApproximation') {
+                    $resb .= " \2DecimalApproximation:\2 " . $pod->subpod->plaintext;
                 }
                 $count++;
             }
@@ -62,11 +65,11 @@ class wolfram extends Module {
         $outtatime = $xml['parsetimedout'];
         //we didn't have tips? try didyoumean
         if($res == '') {
-            $res = "\2WolframAlpha:\2 No results for query, Did you mean: " . $xml->didyoumeans->didyoumean[0];
+            $res = "No results for query, Did you mean: " . $xml->didyoumeans->didyoumean[0];
         }
         
         if($outtatime != 'false') {
-            $res = "\2WolframAlpha:\2 Error, query took too long to parse.";
+            $res = "Error, query took too long to parse.";
         }
         
         //I beleive this is for $var compatibility
@@ -95,4 +98,4 @@ class wolfram extends Module {
         return Array('pause' => 'pause');
     }
 }
-?>
+

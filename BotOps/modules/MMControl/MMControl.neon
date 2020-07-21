@@ -1,0 +1,16 @@
+description: Module Control Module
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+            cmd_reload: {syntax: <module>, desc: Try to reload a module}
+            cmd_loadmod: {syntax: <module>, desc: Try to load a module not in list.conf}
+            cmd_modules: {desc: List modules}
+            cmd_addmodule: {syntax: <module>, desc: Add a new bot specific module.}
+            cmd_delmodule: {syntax: <module>, desc: Remove a bot specific module.}
+        binds:
+            reload: {access: D, func: cmd_reload, loglvl: 3}
+            loadmod: {access: D, func: cmd_loadmod, loglvl: 3}
+            modules: {func: cmd_modules}
+            addmodule: {access: D, func: cmd_addmodule, loglvl: 3}
+            delmodule: {access: D, func: cmd_delmodule, loglvl: 3}

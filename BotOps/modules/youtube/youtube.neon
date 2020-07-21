@@ -1,0 +1,14 @@
+description: YouTube links scanner
+require: [CmdReg]
+irc:
+    hooks:
+        inmsg: {hook: msg}
+Modules:
+    SetReg:
+        channel:
+            scan: {access: 1, desc: "YouTube link scanning", opts: [default: "on", "on", "off"]}
+            date: {access: 1, desc: "Date format https://www.php.net/manual/en/function.date.php", opts: [default: "M j, Y"]}
+            theme: {access: 1,
+                desc: "Customize the output, variables: $yt (YouTube or YouTubeHD), $title, $channel, $length, $date, $views, $likes, $hates",
+                opts: [default: "\x02$yt:\x02 $title \x02Channel:\x02 $channel \x02Length:\x02 $length \x02Date:\x02 $date \x02Views:\x02 $views ▲ $likes ▼ $hates"]
+                }

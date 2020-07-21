@@ -10,7 +10,10 @@
         "ext-json": "*",
         "ext-sockets": "*",
         "ext-enchant": "*",
-        "ext-xmlrpc": "*"
+        "ext-xmlrpc": "*",
+        "ext-posix": "*",
+        "ayesh/case-insensitive-array": "^1.2",
+      "ext-simplexml": "*"
     },
     
     "require-dev": {

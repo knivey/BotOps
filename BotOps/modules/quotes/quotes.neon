@@ -1,0 +1,21 @@
+description: Store quotes
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+            cmd_quote: {syntax: "[num]", desc: "View a random quote, or quote num", needchan: true}
+            cmd_quoteinfo: {syntax: <num>, desc: View information about a specific quote, needchan: true}
+            cmd_quotestats: {desc: View information about the quote system, needchan: true}
+            cmd_delquote: {syntax: <num>, desc: Delete a quote, needchan: true}
+            cmd_undelquote: {syntax: <num>, desc: UnDelete a quote, needchan: true}
+            cmd_addquote: {syntax: <quote>..., desc: Add a quote, needchan: true}
+        binds:
+            quote: {func: cmd_quote}
+            quoteinfo: {func: cmd_quoteinfo}
+            quotestats: {func: cmd_quotestats}
+            delquote: {access: 1, func: cmd_delquote, loglvl: 1}
+            undelquote: {access: 1, func: cmd_undelquote, loglvl: 1}
+            addquote: {access: 1, func: cmd_addquote, loglvl: 1}
+    SetReg:
+        channel:
+            origin: {access: 1, desc: "your channels quotes or all quotes", opts: [default: "all", "all", "chan"]}

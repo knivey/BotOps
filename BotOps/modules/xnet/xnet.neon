@@ -1,0 +1,3 @@
+description: XMLRPC network functions
+XMLRPC:
+    ping: rpc_ping

@@ -26,9 +26,8 @@ class logs extends Module {
     /**
      * List of the table definitions
      * ([modname] => ([Field] => [Field] [Type] [Null] [Key] [Default] [Extra]))
-     * @var array
      */
-    public $dbs = Array();
+    public array $dbs = Array();
 
 
     function rehash(&$old) {
@@ -49,15 +48,10 @@ class logs extends Module {
         $this->loaded($args);
     }
 
-    /**
-     * Slot for loading modules
-     * @param string $name Name of module loaded
-     * @return null
-     */
     function loaded($args) {
         $name = $args['name'];
         echo "logs loading module $name\n";
-        $info = $this->pMM->getRegistry($args['name'], 'logs');
+        $info = $this->pMM->getConf($args['name'], 'logs');
         var_dump($info);
         if ($info == null)
             return;
@@ -74,7 +68,12 @@ class logs extends Module {
          */
 
         $ccols = Array();
-        
+
+        /*
+         * TODO whats in the module configs should be trustable, maybe should validate or escape strings tho?
+         * probably doesnt matter now since i plan to move to Doctrine
+         */
+
         try {
             $qname = $this->mq("logs_$name");
             $stmt = $this->pMysql->query("show tables like '$qname'");
@@ -88,29 +87,18 @@ class logs extends Module {
                 $ccols[$bc['Field']] = $bc;
             }
 
-            foreach ($info as $i) {
+            foreach ($info as $colname => $i) {
                 //[colname] [type] [null] [key] [default] [extra])
-                $colname = array_shift($i);
-                $type = array_shift($i);
-                $null = 'NULL';
-                $default = '';
-                $key = '';
-                $extra = '';
-                if (count($i) > 0) {
-                    $null = $this->mq(array_shift($i));
+                if(!isset($i['type'])) {
+                    throw new Exception("Logs entry missing type");
                 }
-                if (count($i) > 0) {
-                    $key = $this->mq(array_shift($i));
-                }
-                if (count($i) > 0) {
-                    $default = $this->mq(array_shift($i));
-                }
-                if (count($i) > 0) {
-                    $extra = $this->mq(array_shift($i));
-                }
+                $i['null'] ??= 'NULL';
+                $i['default'] ??= '';
+                $i['key'] ??= '';
+                $i['extra'] ??= '';
                 $ak = get_akey_nc($colname, $ccols);
                 if ($ak == '') {
-                    $this->pMysql->query("ALTER TABLE `$qname` ADD COLUMN '$colname' $type $null");
+                    $this->pMysql->query("ALTER TABLE `$qname` ADD COLUMN '$colname' $i[type] $i[null]");
                 }
             }
             
@@ -122,6 +110,7 @@ class logs extends Module {
             $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
             echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
             $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            //TODO if it failed probably shouldnt allow logging to continue
         }
     }
 

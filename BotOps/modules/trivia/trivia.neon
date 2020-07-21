@@ -1,0 +1,24 @@
+description: Trivia game
+require: [CmdReg]
+irc:
+    hooks:
+        h_msg: {hook: msg}
+Modules:
+    CmdReg:
+        funcs:
+            cmd_trivia: {syntax: "[category]", desc: Start a trivia game, needchan: true}
+            cmd_categories: {desc: View categories}
+            cmd_strivia: {desc: Stop a trivia game, needchan: true}
+            cmd_skip: {desc: Skip question, needchan: true}
+            cmd_triviainfo: {desc: Information about the game}
+            cmd_triviastats: {syntax: "[nick]", desc: Show stats for you or someone, needchan: true}
+        binds:
+            trivia: {func: cmd_trivia, loglvl: 1}
+            categories: {func: cmd_categories, loglvl: 1}
+            strivia: {func: cmd_strivia, loglvl: 1}
+            skip: {func: cmd_skip, loglvl: 1}
+            triviainfo: {func: cmd_triviainfo}
+            triviastats: {func: cmd_triviastats}
+    SetReg:
+        channel:
+            enabled: {access: 1, desc: "Enable or disable trivia", opts: [default: "no", "yes", "no"]}

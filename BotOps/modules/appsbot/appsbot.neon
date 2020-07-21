@@ -1,0 +1,27 @@
+description: application checker
+irc:
+    hooks:
+        h_330: {hook: 330}
+        h_318: {hook: 318}
+        h_324: {hook: 324}
+        h_315: {hook: 315}
+        h_471: {hook: 471}
+        h_403: {hook: 403}
+        h_474: {hook: 474}
+        h_kick: {hook: kick}
+        h_notice: {hook: notice}
+        h_join: {hook: join}
+Modules:
+    CmdReg:
+        funcs:
+            cmd_apply: {Syntax: <achan> desc: apply for a new channel, needchan: true}
+            cmd_setidlers: {syntax: "[idlers]", desc: Change Idlers limit}
+            cmd_setmaxchans: {syntax: "[max]", desc: Max number of chans AppsBot will give a bot}
+            cmd_setbots: {syntax: "[bots]...", desc: Set which bots the AppsBot gives chans, space separated}
+            cmd_setenabled: {syntax: "[enabled|disabled]", desc: Turn applications on or off}
+        binds:
+            apply: {func: cmd_apply, loglvl: 2}
+            setidlers: {access: A, func: cmd_setidlers, loglvl: 3}
+            setmaxchans: {access: A, func: cmd_setmaxchans, loglvl: 3}
+            setbots: {access: A, func: cmd_setbots, loglvl: 3}
+            setenabled: {access: A, func: cmd_setenabled, loglvl: 3}

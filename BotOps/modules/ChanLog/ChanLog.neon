@@ -1,0 +1,7 @@
+description: Store IRC logs by channel
+irc:
+    hooks:
+        h_chanevent: {hook: chanevent}
+        h_part: {hook: part}
+        h_kick: {hook: kick}
+        h_killbot: {hook: killbot}

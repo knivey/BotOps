@@ -1,0 +1,28 @@
+description: ScoreBot Module
+require: [CmdReg]
+irc:
+    hooks:
+        ircmsg: {hook: msg}
+Modules:
+    CmdReg:
+        funcs:
+            cmd_connect: {syntax: <ip> <port> <pass>, desc: Try to get rcon to a server., needchan: true}
+            cmd_rcon: {syntax: <rcon_command>..., desc: Try to get rcon to a server., needchan: true}
+            cmd_startsb: {desc: Starts the scorebot., needchan: true}
+            cmd_stopsb: {desc: Stops the scorebot., needchan: true}
+            cmd_gameinfo: {syntax: <ip:port>, desc: Get gameserver info.}
+            cmd_gameplayers: {syntax: <ip:port>, desc: Get gamesserver player list info., needchan: true}
+            cmd_sbplayers: {desc: Get players tracked by scorebot., needchan: true}
+            cmd_qm: {syntax: <on|off>, desc: Set quitemode, needchan: true}
+        binds:
+            connect: {access: 1, func: cmd_connect, loglvl: 1}
+            rcon: {access: 1, func: cmd_rcon, loglvl: 1}
+            startsb: {access: 1, func: cmd_startsb, loglvl: 1}
+            stopsb: {access: 1, func: cmd_stopsb, loglvl: 1}
+            gameinfo: {func: cmd_gameinfo}
+            gameplayers: {func: cmd_gameplayers}
+            sbplayers: {access: 1, func: cmd_sbplayers}
+            qm: {access: 1, func: cmd_qm, loglvl: 1}
+    ParseUtil:
+        vars:
+            gameinfo: {func: v_gameinfo, desc: Query gameserver, args: ["<ip[:port]>"]}

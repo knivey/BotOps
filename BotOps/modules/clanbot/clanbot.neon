@@ -1,0 +1,32 @@
+description: Clanbot commands
+require: [CmdReg]
+Modules:
+    CmdReg:
+        catch: cmdCatch
+        funcs:
+            cmd_bind: {syntax: <name> <value>..., desc: Add/set a new bind, needchan: true}
+            cmd_unbind: {syntax: <bind>, desc: Remove a bind, needchan: true}
+            cmd_bindtype: {syntax: "<bind> [default|notice|act|chan]", desc: Change how a bind responds, needchan: true}
+            cmd_binds: {desc: Show binds, needchan: true}
+            cmd_bindinfo: {syntax: <bind>, desc: Show information about a bind, needchan: true}
+            cmd_hidebind: {syntax: <bind>, desc: "Make bind hidden from $binds and $tbinds", needchan: true}
+            cmd_unhidebind: {syntax: <bind>, desc: "Make bind visible in $binds and $tbinds", needchan: true}
+            cmd_bindalias: {syntax: <alias> <bind>, desc: Make <alias> an alias for <bind>, needchan: true}
+        binds:
+            bind: {access: 1, func: cmd_bind, loglvl: 1}
+            unbind: {access: 1, func: cmd_unbind, loglvl: 1}
+            bindtype: {access: 1, func: cmd_bindtype, loglvl: 1}
+            binds: {access: 1, func: cmd_binds}
+            bindinfo: {access: 1, func: cmd_bindinfo}
+            hidebind: {access: 1, func: cmd_hidebind}
+            unhidebind: {access: 1, func: cmd_unhidebind}
+            bindalias: {access: 1, func: cmd_bindalias}
+    SetReg:
+        channel:
+            bindtype: {access: 1, desc: "Default response for binds", opts: [default: "notice", "notice", "act", "chan"]}
+            theme: {access: 1, desc: "Theme to use for showing binds", opts: [default: "$cmd: $bind"]}
+    ParseUtil:
+        vars:
+            bind: {func: v_bindvalue, desc: bind value}
+            binds: {func: v_binds, desc: list of binds}
+            tbinds: {func: v_tbinds, desc: list of binds with triggers}

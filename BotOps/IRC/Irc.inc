@@ -426,7 +426,7 @@ class Irc {
 	 * limited number of lines replace all with error
 	 * @param string $target Target of message
 	 * @param string $string String to process
-	 * @param bool $no_f If true no errors for exceeding limit
+	 * @param bool $no_f If true errors for exceeding limit
 	 * @return string
 	 */
     private function wrappy($target, $string, $no_f) {
@@ -449,7 +449,7 @@ class Irc {
      * Send a notice
      * @param string $t The target
      * @param string $m The message
-     * @param string $no_f If true no error for exceeding number of line limit
+     * @param string $no_f If true error for exceeding number of line limit
      * @param string $no_p If true no parseutil parsing
      */
     public function notice($t, $m, $no_f=true, $no_p = false) {
@@ -464,7 +464,7 @@ class Irc {
      * Send a notice without using parseutil
      * @param string $t The target
      * @param string $m The message
-     * @param string $no_f If true no error for exceeding number of line limit
+     * @param string $no_f If true error for exceeding number of line limit
      */
     public function rnotice($t, $m, $no_f=true) {
         $this->P_notice($m, Array('t' => $t, 'no_f' => $no_f));
@@ -505,7 +505,7 @@ class Irc {
      * @param string $t The target
      * @param string $c Channel for CNOTICE
      * @param string $m The message
-     * @param string $no_f If true no error for exceeding number of line limit
+     * @param string $no_f If true error for exceeding number of line limit
      */
     public function cnotice($t, $c, $m, $no_f=true) {
         $this->gM('ParseUtil')->parse($m, 'Pcnotice', $this, Array('t' => $t, 'c' => $c, 'no_f' => $no_f));
@@ -530,7 +530,7 @@ class Irc {
      * Send a /me type action
      * @param string $t The target
      * @param string $m The message
-     * @param string $no_f If true no error for exceeding number of line limit
+     * @param string $no_f If true error for exceeding number of line limit
      */
     public function act($t, $m, $no_f=true) {
         $this->gM('ParseUtil')->parse($m, 'Pact', $this, Array('t' => $t, 'no_f' => $no_f));
@@ -577,7 +577,7 @@ class Irc {
      * Send a privmsg
      * @param string $t The target
      * @param string $m The message
-     * @param string $no_f If true no error for exceeding number of line limit
+     * @param string $no_f If true error for exceeding number of line limit
      * @param string $no_p If true no parseutil parsing
      */
     public function msg($t, $m, $no_f=true, $no_p = false) {

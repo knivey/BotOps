@@ -1,0 +1,11 @@
+description: Wolfram Alpha
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+            cmd_calc: {syntax: "<query>...", desc: Send a query to WolframAlpha}
+        binds:
+            calc: {func: cmd_calc}
+    ParseUtil:
+        vars:
+            calc: {func: v_calc, desc: query, args: [WolframAlpha Calculator]}

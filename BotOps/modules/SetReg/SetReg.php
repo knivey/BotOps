@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 require_once('modules/Module.inc');
 require_once('Tools/Tools.php');
 
@@ -48,232 +48,9 @@ require_once('Tools/Tools.php');
     	echo "ENDING SETREG ACCOUNT SETS DUMP.\n";
     }
 
-    /**
-     * Dev command to move settings from under one module to under another module
-     * <Account|Chan> <OldMod.OldSetName> <NewMod.NewSetName>
-     * @param string $nick
-     * @param string $target
-     * @param string $txt
-     * @return number
-     */
-    function cmd_moveset($nick, $target, $txt) {
-    	list($argc, $argv) = niceArgs($txt);
-    	if($argc < 3) {
-    		return $this->BADARGS;
-    	}
-    	$type = strtolower($argv[0]);
-    	if($type != 'account' && $type != 'chan') {
-    		$this->pIrc->notice($nick, "$type is not a valid setting type use either account or chan");
-    		return $this->ERROR;
-    	}
-    	$old = explode('.', $argv[1]);
-    	if(count($old) != 2) {
-    		$this->pIrc->notice($nick, "$argv[1] is an invalid setting name, Use Module.Setting format");
-    		return $this->ERROR;
-    	}
-    	$new = explode('.', $argv[2]);
-    	if(count($new) != 2) {
-    		$this->pIrc->notice($nick, "$argv[2] is an invalid setting name, Use Module.Setting format");
-    		return $this->ERROR;
-    	}
-
-    	if($type == 'account') {
-    		list($error, $changed) = $this->movesetAccount($old, $new);
-    		if(!$error) {
-    			$this->pIrc->notice($nick, "$changed records altered");
-    		} else {
-    			$this->pIrc->notice($nick, "moveset error: $error");
-    			return $this->ERROR;
-    		}
-    	}
-    	
-    	/*
-    	 * I'm going to put off rename of channel sets until we actually need this
-    	 */
-    	if($type == 'chan') {
-    		$this->pIrc->notice($nick, "Not implemented yet.");
-    	}
-    }
-    
-    /**
-     * Move/rename an account setting
-     * @param Array $old [0] for module [1] for setname
-     * @param Array $new [0] for module [1] for setname
-     * @return Array [0] error (false if none, string otherwise) [1] changed amount
-     */
-    function movesetAccount($old, $new) {
-    	$changed = 0;
-    	$error = false;
-    	
-    	$users = $this->gM('user')->allUsers();
-    	
-    	if(empty($users)) {
-    		$error = 'Unable to get list of users';
-    		return Array($error, $changed);
-    	}
-    	
-    	foreach($users as $user) {
-    		$sets = $this->gM('user')->getSet($user, 'SetReg', 'sets');
-    		if(!is_array($sets)) {
-    			continue;
-    		}
-    		$key = get_akey_nc($old[0], $sets);
-    		if($key != null) {
-    			$keyb = get_akey_nc($old[1], $sets[$key]);
-    			if($keyb != null) {
-    				$sets[$new[0]][$new[1]] = $sets[$key][$keyb];
-    				unset($sets[$key][$keyb]);
-    				$changed++;
-    				$this->gM('user')->set($user, 'SetReg', 'sets', $sets);
-    			}
-    		}
-    	}
-    	
-    	return Array($error, $changed);
-    }
-
-    function cmd_cset($nick, $target, $args) {
-        $arg = explode(' ', $args);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $hflags = $this->gM('user')->flags($hand);
-        $chan = strtolower($target);
-        $access = $this->gM('user')->access($hand, $chan);
-        if(empty($arg[0])) {
-		$module = '';
-	} else {
-            $module = $arg[0];
-        }
-        if(empty($arg[1])) {
-		$setting = '';
-	} else {
-            $setting = $arg[1];
-        }
-
-        $rv = $this->OK;
-        $module = strtolower($module);
-        $setting = strtolower($setting);
-
-        $args = arg_range($arg, 2, -1);
-        if($module == '') {
-            $out = $this->getCHelp($access, $hand); // Get the modules with settings user has access for
-            if(count($out) == 1) {
-                $this->pIrc->notice($nick, "No settings found for your lvl $access access.");
-                return $this->ERROR;
-            }
-            foreach ($out as $line) {
-                $this->pIrc->notice($nick, implode('', $line));
-            }
-            $this->pIrc->notice($nick, "Use set <module> for details");
-            return;
-        }
-        if($setting == '' && array_key_exists($module, $this->channelSets)) {
-            //show help
-            $out = $this->getCSetHelp($module, $access, $hand);// Get the help for settings user has access for
-            if(count($out) == 1) {
-                //search for sets then for extra sets (using $module as set name)
-                //if set is found display current setting
-                $this->pIrc->notice($nick, "No settings found for your lvl $access access.");
-                return $this->ERROR;
-            }
-            foreach ($out as $line) {
-                $this->pIrc->notice($nick, implode('', $line));
-            }
-            return $this->ERROR;
-        }
-
-        //first check if $module is a real module name so we know what to set things to
-        if(!array_key_exists($module, $this->channelSets)) { //found
-            $mods = $this->searchCset($access, $hand, $module);
-            if(!empty($mods)) {
-                if(count($mods) > 1) {
-                    $this->pIrc->notice($nick, "no mod: $module. Mutiple mods with setting please choose: " . implode(' ', $mods));
-                    return $this->ERROR;
-                } else {
-                    //$this->pIrc->notice($nick, "Selecting $module under module " . implode('', $mods));
-                    $setting = $module;
-                    $module = implode('', $mods);
-                    $args = arg_range($arg, 1, -1);
-                }
-            } else { //TODO search for cExtras
-                $this->pIrc->notice($nick, "No settings by that name.");
-                return $this->ERROR;
-            }
-        } else {
-            if(!array_key_exists($setting, $this->channelSets[$module])) {
-                $this->pIrc->notice($nick, "No settings by that name.");
-                return $this->ERROR;
-            }
-        }
-        if(array_key_exists('aliasfor', $this->channelSets[$module][$setting])) {
-            $setting = $this->channelSets[$module][$setting]['aliasfor'];
-        }
-        //check up access
-        $at = $this->gM('CmdReg')->hasAxs($access, $hand, $this->channelSets[$module][$setting]['access']);
-        if(!is_numeric($at)) {
-            $this->pIrc->notice($nick, $at);
-            return $this->ERROR;
-        }
-        if($at == -1) {
-            $rv =  $this->OVERRIDE;//handle overide?
-        }
-        if($args == '') { // show current setting
-            $sets = $this->gM('channel')->getSet($chan, 'SetReg', 'sets');
-            $set = '';
-            if($sets == null) {
-                $sets = Array();
-            }
-            if(array_key_exists($module, $sets) && array_key_exists($setting, $sets[$module])) {
-                $set = $sets[$module][$setting];
-            }
-            if($set == '') { //nothing is set show the default
-                $set = $this->channelSets[$module][$setting]['default'];
-            }
-            $this->pIrc->notice($nick, "$module $setting is currently set to: $set", true, true);
-            return $rv;
-        }
-        if(empty($this->channelSets[$module][$setting]['options'])) {
-            $sets = $this->gM('channel')->getSet($chan, 'SetReg', 'sets');
-            $sets[$module][$setting] = $args;
-            $this->gM('channel')->chgSet($chan, 'SetReg', 'sets', $sets);
-            $this->pIrc->notice($nick, "Setting $module $setting updated!");
-            return $rv;
-        }
-        if(array_search(strtolower($args), $this->channelSets[$module][$setting]['options']) !== FALSE) {
-            $sets = $this->gM('channel')->getSet($chan, 'SetReg', 'sets');
-            $sets[$module][$setting] = $args;
-            $this->gM('channel')->chgSet($chan, 'SetReg', 'sets', $sets);
-            $this->pIrc->notice($nick, "Setting $module $setting updated!");
-            return $rv;
-        } elseif($args == "*") {
-            $sets = $this->gM('channel')->getSet($chan, 'SetReg', 'sets');
-            $sets[$module][$setting] = $this->channelSets[$module][$setting]['default'];
-            $this->gM('channel')->chgSet($chan, 'SetReg', 'sets', $sets);
-            $this->pIrc->notice($nick, "Setting $module $setting updated!");
-            return $rv;
-        } else {
-            $opts = '';
-            foreach ($this->channelSets[$module][$setting]['options'] as $o) {
-                $opts .= $o . ' ';
-            }
-            $this->pIrc->notice($nick, "Please choose from: " . trim($opts));
-            return $this->ERROR;
-        }
-    }
-
     function getCSet($module, $chan, $setting) {
         $sets = $this->gM('channel')->getSet($chan, 'SetReg', 'sets');
-        $set = '';
-        if($sets == null) {
-            $sets = Array();
-        }
-        if(array_key_exists($module, $sets) && array_key_exists($setting, $sets[$module])) {
-            $set = $sets[$module][$setting];
-        }
-        if($set == '') { //nothing is set show the default
-            $set = $this->channelSets[$module][$setting]['default'];
-        }
-        return $set;
+        return $sets[$module][$setting] ?? $this->channelSets[$module][$setting]['default'];
     }
 
     //TODO in the future look into adding hooks to let modules know
@@ -284,141 +61,147 @@ require_once('Tools/Tools.php');
         $this->gM('channel')->chgSet($chan, 'SetReg', 'sets', $sets);
     }
 
-    function cmd_aset($nick, $target, $args) {
-        $arg = explode(' ', $args);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        //$target = strtolower($target);
-        $access = $this->gM('user')->flags($hand);
-        if(empty($arg[0])) {
-		$module = '';
-	} else {
-            $module = $arg[0];
-        }
-        if(empty($arg[1])) {
-		$setting = '';
-	} else {
-            $setting = $arg[1];
+    function cmd_set(CmdRequest $r) {
+        echo "$r->account $r->chan $r->access\n";
+        if(!$r->chan) {
+            $target = $r->account;
+            $access = $this->gM('user')->flags($r->account);
+        } else {
+            $target = strtolower($r->chan);
+            $access = $this->gM('user')->access($r->account, $target);
         }
 
-        $module = strtolower($module);
-        $setting = strtolower($setting);
+        $module = strtolower($r->args['module']);
+        $setting = strtolower($r->args['name']);
+        $args = $r->args['value'];
 
-        $args = arg_range($arg, 2, -1);
         if($module == '') {
-            $out = $this->getAHelp($access); // Get the modules with settings user has access for
+            if($target[0] == '#') {
+                $out = $this->getCHelp($access, $r->account);
+            } else {
+                $out = $this->getAHelp($access);
+            }
             if(count($out) == 1) {
-                $this->pIrc->notice($nick, "No settings found.");
-                return;
+                throw new CmdException("No settings found for your access level ($access)");
             }
             foreach ($out as $line) {
-                $this->pIrc->notice($nick, implode('', $line));
+                $r->notice(implode('', $line), 0, 1);
             }
-            $this->pIrc->notice($nick, "Use set <module> for details");
+            $r->notice("Use set <module> for details", 0, 1);
             return;
         }
-        if($setting == '' && array_key_exists($module, $this->accountSets)) {
-            //show help
-            $out = $this->getASetHelp($module, $access);// Get the help for settings user has access for
-            if(count($out) == 1) {
-                //search for sets then for extra sets (using $module as set name)
-                //if set is found display current setting
-                $this->pIrc->notice($nick, "No settings found.");
+
+        //Get help only for module
+        //Assumes $module is a module, if its not a module skip and later assume its a setting
+        if($setting == '') {
+            $out = [];
+            if($target[0] == '#' && array_key_exists($module, $this->channelSets)) {
+                $out = $this->getCSetHelp($module, $access, $r->account);
+            }
+            if($target[0] != '#' && array_key_exists($module, $this->accountSets)) {
+                $out = $this->getASetHelp($module, $access);
+            }
+            if(!empty($out)) {
+                if (count($out) == 1) {
+                    throw new CmdException("No settings found for your access level ($access)");
+                }
+                foreach ($out as $line) {
+                    $r->notice(implode('', $line), true, true);
+                }
                 return;
             }
-            foreach ($out as $line) {
-                $this->pIrc->notice($nick, implode('', $line));
-            }
-            return;
         }
 
         //first check if $module is a real module name so we know what to set things to
-        if(!array_key_exists($module, $this->accountSets)) { //found
-            $mods = $this->searchAset($access, $hand, $module);
+        if($target[0] != '#') {
+            $sets = $this->accountSets;
+        } else {
+            $sets = $this->channelSets;
+        }
+        if(!array_key_exists($module, $sets)) {
+            if($target[0] == '#') {
+                $mods = $this->searchCset($access, $r->account, $module);
+            } else {
+                $mods = $this->searchAset($access, $r->account, $module);
+            }
             if(!empty($mods)) {
                 if(count($mods) > 1) {
-                    $this->pIrc->notice($nick, "no mod: $module. Mutiple mods with setting please choose: " . implode(' ', $mods));
-                    return;
+                    throw new CmdException("no mod: $module. Mutiple mods with setting please choose: " . implode(' ', $mods));
                 } else {
-                    //$this->pIrc->notice($nick, "Selecting $module under module " . implode('', $mods));
+                    $args = trim("$setting $args");
                     $setting = $module;
                     $module = implode('', $mods);
-                    $args = arg_range($arg, 1, -1);
                 }
             } else { //TODO search for cExtras
-                $this->pIrc->notice($nick, "No settings by that name.");
-                return;
+                throw new CmdException("No settings by that name ($module).");
             }
         } else {
-            if(!array_key_exists($setting, $this->accountSets[$module])) {
-                $this->pIrc->notice($nick, "No settings by that name.");
-                return;
+            if(!array_key_exists($setting, $sets[$module])) {
+                throw new CmdException("No settings by that name ($module $setting).");
             }
         }
-        if(array_key_exists('aliasfor', $this->accountSets[$module][$setting])) {
-            $setting = $this->accountSets[$module][$setting]['aliasfor'];
+        if(array_key_exists('aliasfor', $sets[$module][$setting])) {
+            $setting = $sets[$module][$setting]['aliasfor'];
         }
         //check up access
-        $at = $this->gM('CmdReg')->hasAxs($access, $hand, $this->accountSets[$module][$setting]['access']);
+        $at = $this->gM('CmdReg')->hasAxs($access, $r->account, $sets[$module][$setting]['access']);
         if(!is_numeric($at)) {
-            $this->pIrc->notice($nick, $at);
-            return;
+            throw new CmdException($at);
         }
         if($at == -1) {
-            ;//handle overide?
+            $r->setOverride();
         }
         if($args == '') { // show current setting
-            $sets = $this->gM('user')->getSet($hand, 'SetReg', 'sets');
             $set = '';
-            if($sets == null) {
-                $sets = Array();
+            if($target[0] == '#') {
+                $set = $this->getCSet($module, $target, $setting);
+            } else {
+                $set = $this->getASet($target, $module, $setting);
             }
-            if(array_key_exists($module, $sets) && array_key_exists($setting, $sets[$module])) {
-                $set = $sets[$module][$setting];
-            }
-            if($set == '') { //nothing is set show the default
-                $set = $this->accountSets[$module][$setting]['default'];
-            }
-            $this->pIrc->notice($nick, "$module $setting is currently set to: $set", true, true);
-            return;
+            $r->notice("$target $module $setting is currently set to: $set", true, true);
+            return $r;
         }
-        if(empty($this->accountSets[$module][$setting]['options'])) {
-            $sets = $this->gM('user')->getSet($hand, 'SetReg', 'sets');
-            $sets[$module][$setting] = $args;
-            $this->gM('user')->set($hand, 'SetReg', 'sets', $sets);
-            $this->pIrc->notice($nick, "Setting $module $setting updated!");
-            return;
+        if(empty($sets[$module][$setting]['options'])) {
+            if($target[0] == '#') {
+                $this->cSet($module, $target, $setting, $args);
+            } else {
+                $this->aSet($r->account, $module, $setting, $args);
+            }
+            $r->notice("Setting $module $setting updated!");
+            return $r;
         }
-        if(array_search(strtolower($args), $this->accountSets[$module][$setting]['options']) !== FALSE) {
-            $sets = $this->gM('user')->getSet($hand, 'SetReg', 'sets');
-            $sets[$module][$setting] = $args;
-            $this->gM('user')->set($hand, 'SetReg', 'sets', $sets);
-            $this->pIrc->notice($nick, "Setting $module $setting updated!");
+
+        $opt = array_search(strtolower($args), $sets[$module][$setting]['options']);
+        if($opt !== FALSE) {
+            $opt = $sets[$module][$setting]['options'][$opt];
+            if($target[0] == '#') {
+                $this->cSet($module, $target, $setting, $opt);
+            } else {
+                $this->aSet($r->account, $module, $setting, $opt);
+            }
+            $r->notice("Setting $module $setting updated!");
+            return $r;
+        } elseif($args == "*") {
+            $opt = $sets[$module][$setting]['default'];
+            if($target[0] == '#') {
+                $this->cSet($module, $target, $setting, $opt);
+            } else {
+                $this->aSet($r->account, $module, $setting, $opt);
+            }
+            $r->notice("Setting $module $setting updated!");
+            return $r;
         } else {
-            $opts = '';
-            foreach ($this->accountSets[$module][$setting]['options'] as $o) {
-                $opts .= $o . ' ';
-            }
-            $this->pIrc->notice($nick, "Please choose from: " . trim($opts));
+            $opts = implode(', ', $sets[$module][$setting]['options']);
+            throw new CmdException("Please choose from: $opts");
         }
     }
 
     function getASet($hand, $module, $setting) {
         $sets = $this->gM('user')->getSet($hand, 'SetReg', 'sets');
-        $set = '';
-        if($sets == null) {
-            $sets = Array();
-        }
-        if(array_key_exists($module, $sets) && array_key_exists($setting, $sets[$module])) {
-            $set = $sets[$module][$setting];
-        }
-        if($set == '') { //nothing is set show the default
-            $set = $this->accountSets[$module][$setting]['default'];
-        }
-        return $set;
+        return $sets[$module][$setting] ?? $this->accountSets[$module][$setting]['default'];
     }
     
-    function aSet($module, $setting, $args) {
+    function aSet($hand, $module, $setting, $args) {
         $sets = $this->gM('user')->getSet($hand, 'SetReg', 'sets');
         $sets[$module][$setting] = $args;
         $this->gM('user')->set($hand, 'SetReg', 'sets', $sets);    
@@ -562,6 +345,9 @@ require_once('Tools/Tools.php');
         if(!array_key_exists($target, $this->channelSets[$mod])) {
             return;
         }
+        if(isset($this->channelSets[$mod][strtolower($name)])) {
+            return;
+        }
         $this->channelSets[strtolower($mod)][strtolower($name)] = Array(
             'name' => $name,
             'options' => $this->channelSets[$mod][$target]['options'],
@@ -577,6 +363,9 @@ require_once('Tools/Tools.php');
             return;
         }
         if(!array_key_exists($target, $this->accountSets[$mod])) {
+            return;
+        }
+        if(isset($this->accountSets[$mod][strtolower($name)])) {
             return;
         }
         $this->accountSets[strtolower($mod)][strtolower($name)] = Array(
@@ -612,7 +401,7 @@ require_once('Tools/Tools.php');
     function getASetHelp($mod, $access) {
         $out = Array(Array('Setting', 'Description'));
         $sets = $this->aModAxs($access, $mod);
-        foreach($this->accountSets[strtolower($mod)] as $s) {
+        foreach($sets as $s) {
             $out[] = Array($s['name'], $s['desc']);
         }
         return multi_array_padding($out);
@@ -622,7 +411,6 @@ require_once('Tools/Tools.php');
         $out = Array(Array('Setting', 'Description'));
         $sets = $this->cModAxs($caxs, $hand, $mod);
         foreach($sets as $s) {
-            //$this->channelSets[strtolower($mod)][$s];
             $out[] = Array($s['name'], $s['desc']);
         }
         return multi_array_padding($out);
@@ -636,55 +424,47 @@ require_once('Tools/Tools.php');
     function loaded($args) {
         echo "SetReg loading module $args[name]\n";
         $mod = strtolower($args['name']);
-        $info = $this->pMM->getRegistry($args['name'], 'SetReg');
+        $info = $this->pMM->getConf($args['name'], 'SetReg');
         if($info == null) return;
         //Handle our section of registry.conf here
-        if(array_key_exists('account', $info) && is_array($info['account'])) {
-            foreach($info['account'] as $a) {
-                $name = array_shift($a);
-                $access = array_shift($a);
-                $desc = array_shift($a);
-                $default = array_shift($a);
-                if(count($a) > 0) {
-                    $options = $a;
-                } else {
-                    $options = null;
+        if(isset($info['account']) && is_array($info['account'])) {
+            foreach($info['account'] as $name => $set) {
+                $access = $set['access'] ?? null;
+                $desc = $set['desc'] ?? "No description";
+                $default = null;
+                if(isset($set['opts']['default'])) {
+                    $default = $set['opts']['default'];
+                    unset($set['opts']['default']);
                 }
-                echo "SetReg adding account set $mod, $name\n";
-                $this->addAccountSet($mod, $name, $options, $desc, $default, $access);
-                unset($options);
+                if(empty($set['opts'])) {
+                    $set['opts'] = null;
+                }
+                $this->addAccountSet($mod, $name, $set['opts'], $desc, $default, $access);
             }
         }
-        if(array_key_exists('channel', $info) && is_array($info['channel'])) {
-            foreach($info['channel'] as $a) {
-                $name = array_shift($a);
-                $access = array_shift($a);
-                $desc = array_shift($a);
-                $default = array_shift($a);
-                if(count($a) > 0) {
-                    $options = $a;
-                } else {
-                    $options = null;
+        if(isset($info['channel']) && is_array($info['channel'])) {
+            foreach($info['channel'] as $name => $set) {
+                $access = $set['access'] ?? 0;
+                $desc = $set['desc'] ?? "No description";
+                $default = null;
+                if(isset($set['opts']['default'])) {
+                    $default = $set['opts']['default'];
+                    unset($set['opts']['default']);
                 }
-                echo "SetReg adding channel set $mod, $name\n";
-                $this->addChanSet($mod, $name, $options, $desc, $default, $access);
-                unset($options);
+                if(empty($set['opts'])) {
+                    $set['opts'] = null;
+                }
+                $this->addChanSet($mod, $name, $set['opts'], $desc, $default, $access);
             }
         }
         if(array_key_exists('channel_alias', $info) && is_array($info['channel_alias'])) {
-            foreach($info['channel_alias'] as $a) {
-                $target = $a[0];
-                $alias = $a[1];
-                echo "SetReg adding channel alias set $mod, $target, $alias\n";
-                $this->addChanAlias($mod, $target, $alias);
+            foreach($info['channel_alias'] as $name => $target) {
+                $this->addChanAlias($mod, $target, $name);
             }
         }
         if(array_key_exists('account_alias', $info) && is_array($info['account_alias'])) {
-            foreach($info['account_alias'] as $a) {
-                $target = $a[0];
-                $alias = $a[1];
-                echo "SetReg adding account alias set $mod, $target, $alias\n";
-                $this->addAccountAlias($mod, $target, $alias);
+            foreach($info['account_alias'] as $name => $target) {
+                $this->addAccountAlias($mod, $target, $name);
             }
         }
     }

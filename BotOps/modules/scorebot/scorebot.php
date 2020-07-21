@@ -1,102 +1,75 @@
 <?php
-
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 require_once('modules/Module.inc');
 
 class scorebot extends Module {
-    function cmd_connect($nick, $target, $arg2) {
-        //Setup our normal variables..
-        $arg = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $chan = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->gM('user')->access($hand, $chan);
-        if(empty($arg[2])) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
-        }
-        $ip = gethostbyname($arg[0]);
-        $port = $arg[1];
-        $pass = $arg[2];
+    function cmd_connect(CmdRequest $r) {
+        $ip = gethostbyname($r->args['ip']);
+        $port = $r->args['port'];
+        $pass = $r->args['pass'];
         $inchan = $this->findChan($ip, $port);
         if($inchan == FALSE) {
-            $this->startbot($chan, $ip, $port, $pass);
+            $this->startbot($r->chan, $ip, $port, $pass);
         } else {
-            $this->pIrc->msg($chan, "ScoreBot is already running for $ip:$port in $inchan");
+            throw new CmdException("ScoreBot is already running for $ip:$port in $inchan");
         }
     }
     
-    function cmd_startsb($nick, $target, $arg2) {
-        //Setup our normal variables..
-        $arg = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $chan = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->gM('user')->access($hand, $chan);
-        if(!$this->chanRunning($chan)) {
-            $this->pIrc->msg($chan, "ScoreBot not connected in this channel.");
-            return;
+    function cmd_startsb(CmdRequest $r) {
+        if(!$this->chanRunning($r->chan)) {
+            throw new CmdException("ScoreBot not connected in this channel.");
         }
-        if(!array_key_exists('sourceRcon', $this->chans[strtolower($chan)])) {
-            $this->chans[strtolower($chan)]['rcon']->runcmd("logaddress $this->bindip $this->bindport");
+        if(!array_key_exists('sourceRcon', $this->chans[strtolower($r->chan)])) {
+            $this->chans[strtolower($r->chan)]['rcon']->runcmd("logaddress $this->bindip $this->bindport");
         } else {
-            $this->chans[strtolower($chan)]['sourceRcon']->sendCmd("log 1");
-            $this->chans[strtolower($chan)]['sourceRcon']->sendCmd("logaddress_add $this->bindip:$this->bindport");
+            $this->chans[strtolower($r->chan)]['sourceRcon']->sendCmd("log 1");
+            $this->chans[strtolower($r->chan)]['sourceRcon']->sendCmd("logaddress_add $this->bindip:$this->bindport");
         }
     }
     
-    function cmd_stopsb($nick, $chan, $arg2) {
-        if(!$this->chanRunning($chan)) {
-            $this->pIrc->msg($chan, "ScoreBot not connected in this channel.");
-            return;
+    function cmd_stopsb(CmdRequest $r) {
+        if(!$this->chanRunning($r->chan)) {
+            throw new CmdException("ScoreBot not connected in this channel.");
         }
-        if(!array_key_exists('sourceRcon', $this->chans[strtolower($chan)])) {
-            $this->chans[strtolower($chan)]['rcon']->runcmd("logaddress_del $this->bindip $this->bindport");
+        if(!array_key_exists('sourceRcon', $this->chans[strtolower($r->chan)])) {
+            $this->chans[strtolower($r->chan)]['rcon']->runcmd("logaddress_del $this->bindip $this->bindport");
         } else {
-            $this->chans[strtolower($chan)]['sourceRcon']->sendCmd("logaddress_del $this->bindip:$this->bindport");
+            $this->chans[strtolower($r->chan)]['sourceRcon']->sendCmd("logaddress_del $this->bindip:$this->bindport");
         }
     }
     
-    function cmd_sbplayers($nick, $target, $arg2) {
-        $chan = strtolower($target);
+    function cmd_sbplayers(CmdRequest $r) {
+        $chan = strtolower($r->chan);
         if(!$this->chanRunning($chan)) {
-            $this->pIrc->msg($chan, "ScoreBot not connected in this channel.");
-            return;
+            throw new CmdException("ScoreBot not connected in this channel.");
         }
         $players = $this->chans[$chan]['logger']->getPlayers();
         if(empty($players)) {
-            $this->pIrc->msg($chan, 'ScoreBot not running or no players');
-            return;
+            throw new CmdException('ScoreBot not running or no players');
         }
         $out = '';
         foreach($players as $p) {
             $out .= "$p[name]($p[uid]) $p[steamid] | ";
         }
         $out = trim($out, ' |');
-        $this->pIrc->msg($chan, "\2Players:\2 $out");
+        $r->reply("\2Players:\2 $out");
     }
 
-    function cmd_rcon($nick, $target, $arg2) {
-        //Setup our normal variables..
-        $arg = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $chan = strtolower($target); //Later on we might change this command for use via PM
-        //$access = $this->gM('user')->access($hand, $chan);
-        if(empty($arg[0])) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
-        }
+    function cmd_rcon(CmdRequest $r) {
+        $chan = strtolower($r->chan);
         if(!$this->chanRunning($chan)) {
-            $this->pIrc->msg($chan, "ScoreBot not connected in this channel.");
+            $r->reply("ScoreBot not connected in this channel.");
             return;
         }
         if(!array_key_exists('sourceRcon', $this->chans[$chan])) {
-            $this->chans[$chan]['rcon']->runcmd($arg2);
+            $this->chans[$chan]['rcon']->runcmd($r->args[0]);
         } else {
-            $cid = $this->chans[$chan]['sourceRcon']->sendCmd($arg2);
+            $cid = $this->chans[$chan]['sourceRcon']->sendCmd($r->args[0]);
             //if($cid == -1) {
             //    $this->chans[$chan]['sourceRcon']->init();
-            //    $this->pIrc->msg($chan, "Reconnecting to rcon try again.");
+            //    $r->reply("Reconnecting to rcon try again.");
             //} else {
-                $this->chans[$chan]['cids'][$cid] = $arg2;
+                $this->chans[$chan]['cids'][$cid] = $r->args[0];
             //}
         }
     }
@@ -143,11 +116,11 @@ class scorebot extends Module {
          * * qm         = quietmode, only show join/quit chat
     */
 
-    public $bindip = '198.46.133.128';		//ip our log listener uses
+    public $bindip = '0';		//ip our log listener uses
     public $bindport = 0;	//port our log listener uses
     public $sock;		//We will use this for all our logging communications
 
-    public $rbindip = '198.46.133.128';	//ip our rcon listener uses
+    public $rbindip = '0';	//ip our rcon listener uses
     public $rbindport = 0;	//port our rcon listener uses
     public $rsock;		//We will use this for all our rcon communications
 
@@ -232,53 +205,39 @@ class scorebot extends Module {
         return "\2Server:\2 $xml->name \2Game:\2 $xml->gametype \2Map:\2 $xml->map \2Players:\2 $xml->numplayers/$xml->maxplayers \2Ping:\2 $xml->ping";
     }
 
-    function cmd_gameinfo($nick, $target, $arg2) {
-        $arg = explode(' ', $arg2);
-        
-        if(cisin($arg[0], ':')) {
-            $ip = explode(':', $arg[0]);
+    function cmd_gameinfo(CmdRequest $r) {
+        $ip = explode(':', $arg[0]);
+        if(isset($ip[1])) {
             $port = $ip[1];
-            $ip = $ip[0];
         } else {
-            $ip = $arg[0];
-            if (isset($arg[1])) {
-                $port = $arg[1];
-            } else {
-                $port = 27015;
-            }
+            $post = "27015";
         }
+
         $sarg = escapeshellarg("$ip:$port");
-        $xml = `quakestat -xml -utf8 -timeout 1 -a2s $sarg`;
+        $xml = `quakestat -xml -utf8 -timeout 5 -a2s $sarg`;
         $xml = simplexml_load_string($xml);
         $xml = $xml->server;
         if ($xml->hostname == '' || $xml['status'] == 'DOWN') {
-            $this->pIrc->msg($target, "Server not found $ip:$port");
+            $r->reply("Server not found $ip:$port");
             return;
         }
-        $this->pIrc->msg($target, "\2Server:\2 $xml->name \2Game:\2 $xml->gametype \2Map:\2 $xml->map \2Players:\2 $xml->numplayers/$xml->maxplayers \2Ping:\2 $xml->ping");
+        $r->reply("\2Server:\2 $xml->name \2Game:\2 $xml->gametype \2Map:\2 $xml->map \2Players:\2 $xml->numplayers/$xml->maxplayers \2Ping:\2 $xml->ping");
     }
 
-    function cmd_gameplayers($nick, $target, $arg2) {
-        $arg = explode(' ', $arg2);
-        
-        if(cisin($arg[0], ':')) {
-            $ip = explode(':', $arg[0]);
+    function cmd_gameplayers(CmdRequest $r) {
+        $ip = explode(':', $arg[0]);
+        if(isset($ip[1])) {
             $port = $ip[1];
-            $ip = $ip[0];
         } else {
-            $ip = $arg[0];
-            if (isset($arg[1])) {
-                $port = $arg[1];
-            } else {
-                $port = 27015;
-            }
+            $post = "27015";
         }
+
         $sarg = escapeshellarg("$ip:$port");
-        $xml = `quakestat -xml -utf8 -timeout 6 -P -a2s $sarg`;
+        $xml = `quakestat -xml -utf8 -timeout 5 -P -a2s $sarg`;
         $xml = simplexml_load_string($xml);
         $xml = $xml->server;
         if ($xml->hostname == '' || $xml['status'] == 'DOWN') {
-            $this->pIrc->msg($target, "Server not found $ip:$port");
+            $r->reply("Server not found $ip:$port");
             return;
         }
         
@@ -288,7 +247,7 @@ class scorebot extends Module {
             $Players .= $p->name . '('. $p->score . ') ' . $p->time . ' | ';
         }
         $Players = trim($Players, ' |');
-        $this->pIrc->msg($target, "\2Server:\2 $xml->name \2Game:\2 $xml->gametype \2Players($xml->numplayers/$xml->maxplayers):\2 $Players");
+        $r->reply("\2Server:\2 $xml->name \2Game:\2 $xml->gametype \2Players($xml->numplayers/$xml->maxplayers):\2 $Players");
     }
     
     function startbot($chan, $ip, $port, $pass) {
@@ -297,7 +256,7 @@ class scorebot extends Module {
         //TODO check if bot is already started.
 
         //first lets qstat the server and get gametype / make sure its up
-        $xml = `quakestat -xml -utf8 -timeout 1 -a2s $ip:$port`;
+        $xml = `quakestat -xml -utf8 -timeout 5 -a2s $ip:$port`;
         $xml = simplexml_load_string($xml);
         $xml = $xml->server;
         if(isset($xml->error) || $xml['status'] == 'DOWN') {
@@ -322,7 +281,7 @@ class scorebot extends Module {
                 $isSource = true;
                 $this->pIrc->msg($chan, "Establishing RCON to $ip:$port Gametype: $xml->gametype Players: $xml->numplayers/$xml->maxplayers Map: $xml->map Name: $xml->name");
                 $rcon = new sourceRcon($this, 'sourceRconRead', $ip, $port, $pass, $this->pSockets);
-                $logger = new tfcLog_hlds($ip, $port, $pass, $sock, $rcon, $this->bindip, $this->bindport);
+                $logger = new tfcLog_hlds($ip, $port, $pass, $this->sock, $rcon, $this->bindip, $this->bindport);
                 $rcon->init();
                 break;
             default:
@@ -394,19 +353,17 @@ class scorebot extends Module {
         }
     }
     
-    function cmd_qm($nick, $chan, $arg) {
-        $arg = strtolower($arg);
-        $chan = strtolower($chan);
+    function cmd_qm(CmdRequest $r) {
+        $chan = strtolower($r->chan);
         if(!$this->chanRunning($chan)) {
-            $this->pIrc->msg($chan, "ScoreBot not connected in this channel.");
+            throw new CmdException("ScoreBot not connected in this channel.");
+        }
+        if($r->args[0] != 'on' && $r->args[0] != 'off') {
+            $r->reply("Quitemode is currently: " . $this->chans[$chan]['qm'] . " (use on|off to change)");
             return;
         }
-        if($arg != 'on' && $arg != 'off') {
-            $this->pIrc->msg($chan, "Quitemode is currently: " . $this->chans[$chan]['qm'] . " (use on|off to change)");
-            return;
-        }
-        $this->chans[$chan]['qm'] = $arg;
-        $this->pIrc->msg($chan, "Quitemode set to $arg");
+        $this->chans[$chan]['qm'] = $r->args[0];
+        $r->reply("Quitemode set to {$r->args[0]}");
     }
     
     function logRead($sock, $from_ip, $from_port, $data) {
@@ -466,4 +423,3 @@ class scorebot extends Module {
     }
 }
 
-?>

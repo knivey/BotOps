@@ -1,0 +1,12 @@
+description: Settings module
+require: [CmdReg]
+slots:
+    loaded: {from: ModuleManager, name: load}
+    reloaded: {from: ModuleManager, name: reload}
+    unloaded: {from: ModuleManager, name: unload}
+Modules:
+    CmdReg:
+        funcs:
+            cmd_set: {syntax: "[module] [name] [value]...", desc: change a setting}
+        binds:
+            set: {func: cmd_set, loglvl: 3}

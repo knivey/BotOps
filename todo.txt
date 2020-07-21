@@ -1,23 +1,92 @@
 make weather able to lookup *user or @nick
-have option to just start all bots in leaf.php instead of naming them.
+
 use unix sockets for local connetions, or direct function if in same proc.
-test script for php extensions that we need
+
 make first time install scripts and per module support on it, ability to install modules exclusively
-https://ne-on.org/ for configs?
+
 ability to use sqlite, or run without db? try to get the core things away from all that
+
 update for php7
+
 users auth, have it just recognize by authserv username, hardly anyone renames their account, make this a separate module and have a selection?
-
-
-have botops join all channels automatically, part if bot is alone for 5min set time of parting in db for data expiration
 with new user system give channel ops (+o) access to all chan commands, gamesurge staff access to all staff commands
 but restrict access to authed users, create accounts based on AS username for user settings etc, have lastseen time
 occasionally AS info all the users and expire deleted ones.
+
 before the bot joins newly created channel seen from /list changes, make sure it still exists.
+
 when banned do normal rejoin trys 3 times then mute attempts and slow the rejoins to once an hour, notify when rejoined.
 
-youtubu scan show channel info when linked a channel and not video
+youtube scan show channel info when linked a channel and not video
+
 trivia dont show duplicated questions
+
+trivia better randomnes now that there are lots of files
+
+trivia ability to start with specific categories
+
 Module.inc:142 $n is undefined
+
 bots table has some default values but theres no irc interface to change them
+
 Irc.inc:203 change sbnc to irc
+
+Check if i want to move things from the channel module to the Irc library, looks like topics and bans in stuff arn in it?
+
+Split fun module up into smaller modules
+
+Switch everything to phpreact
+
+start using Nette utilities
+    use their json because it throws exceptions
+
+
+
+Start using exceptions for errors
+    ModuleManager needs to handle exceptions on loaded because CmdReg will be throwing
+    can probably catch a lot of PDO exceptions better
+
+twitter link scanner - show the tweet on irc
+
+youtube alias channel to author in theme
+youtube video duration should show 0h when its 0
+
+setreg dont parse $vars in output
+
+WA: check the API for decimal results and also display those
+
+scalc: command that does simple math calcs that dont require WA
+
+Vars:
+	rcaps - randomly cap chars in sentence
+	change rainbow to be prism and also add prism alias
+	add rcolors that is the old rainbow
+	bar that changes color as it gets full
+	random number that stores value per nick 30min
+	scalc? - so very simple math calculations that doesnt require WA
+
+Quotes: allow origin to be a list of channels
+
+whois: channels if on two lines only outputs last line
+
+
+Make an interface system for modules and allow them to say they implement X interface
+mainly for things like having interchangable user system modules, as long as it implements the interface
+all other modules should be fine using it that require the user module. might go for cmdreg and setreg modules too?
+Might require a user module to be loaded flat out (even if just a dummy one) then can set $this->Users instead of
+doing the $this->gM('user') crap. in any case i def want to replace gM()
+
+trivia: stop game after so many questions
+
+
+#want to be able to disable binds in mysql, otherwise registry will just remake them
+
+#TODO put module specific configs inside that modules dir, not in main.conf (maybe inside the mod.neon?)
+#actually i think it can be nices to have all the configs in one location, maybe support both
+#make a way to reload the config
+
+#cleanup setreg options, what did i mean by this
+
+#TODO update mysql for binds
+
+#TODO needauth for CmdReg funcs, useful in the user module for PMs at least

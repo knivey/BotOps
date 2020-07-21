@@ -4,310 +4,13 @@
  *  add their callbacks to parts of the bot
  */
 
-require_once 'Tools/Tools.php';
+require_once __DIR__ . '/../Tools/Tools.php';
 require_once 'Module.inc';
+require_once 'ModuleLoader.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
 
+use Nette\Neon\Neon;
 
-/* Work flowish
- * 1) read the list.conf file to get a list of modules to load
- * 2) read registry.conf for each mod into mem
- * 3) make sure all requires will be met (no need for load order)
- *    also make sure all mods we definatly need will be loaded (User, CmdReg)
- * 3) parse modules php code
- * 4) register all irc hooks
- * 5) process all signals (CmdReg module should catch signals for 
- *    each modloaded so it can process their cmds from registry.conf)
- * Hopefully this flow will work ;)
- */
-/*
- * going to move loading, eval()
- * and tracking classnames
- * of modules to ModuleLoader
- * ModuleManager will just tell
- * ModuleLoader the modules it needs
- * loaded or reloaded and get the names
- * from it...
- * ModuleLoader will be created in a
- * global scope so all bots can share
- * the same eval()ed code....
- * 
- */
-
-
-class ModuleLoader {
-    public $unique; //unique string
-    /*
-     * $modules['modname'] = Array();
-     * 'info' - information from registry.conf
-     * 'classname' - fixed name of class
-     * 'classes' - Array() of extra classes fixed names
-     * 'otherFiles' - Array() of other files names in module
-     * 'date' - date it was loaded
-     * 'fileTime' - time file was last modify at point of loading
-     * 'iteration' - counter of how many times its been loaded
-     * 'regiteration'
-     */
-    public $modules = Array();
-
-    function __construct() {
-        for ($i = 0; $i < 10; $i++) {
-            $this->unique .= chr(rand(ord('a'), ord('z')));
-        }
-    }
-    
-    function getInfo($mod) {
-        if(!array_key_exists($mod, $this->modules) ||
-                !array_key_exists('info', $this->modules[$mod])) {
-            return false;
-        }
-        return $this->modules[$mod]['info'];
-    }
-    
-    function getName($mod) {
-        return $this->modules[$mod]['classname'];
-    }
-    
-    function getDesc($mod) {
-        if(isset($this->modules[$mod]['info']->description)) {
-            return $this->modules[$mod]['info']->description;
-        } else {
-            return 'Unknown module.';
-        }
-    }
-    
-    /*
-     * called on bot init will not reeval module
-     * code if its already evaled()
-     */
-    function needModule($mod) {
-        if(array_key_exists($mod, $this->modules)) {
-            return;
-        }
-        $this->loadModule($mod);
-    }
-
-    function getDep($mod) {
-        if(!isset($this->modules[$mod]['info']->require)) {
-            return Array();
-        }
-        return $this->modules[$mod]['info']->require;
-    }
-    
-    function loadRegistry($name) {
-    //load modules registry
-        $code = file_get_contents('./modules/' . $name . '/registry.php');
-        if (!preg_match("/class[\s]+?".'registry'."[\s]+?{/", $code)) {
-            echo "Error: Could not find valid registry class in $name";
-            die();
-        }
-        
-        $itr = 0;
-        if(array_key_exists($name, $this->modules) && array_key_exists('regiteration', $this->modules[$name])) {
-            $this->modules[$name]['regiteration']++;
-            $itr = $this->modules[$name]['regiteration'];
-        }
-        $newName = $this->unique . '_' . $name . "_registry_" . $itr;
-        $newcode = preg_replace("/(class[\s]+?)registry([\s]+?{)/", "\\1" . $newName . "\\2", $code);
-
-        $tempFile = './modules/' . $name . '/' . $newName . '.php';
-        
-        if(file_put_contents($tempFile, $newcode) === false) {
-        	die("Could not write to temporary file");
-        }
-        /*
-        if(eval('?>' . $newcode . '<?') === false) {
-            echo "PHP Error in code file ./modules/$name/registry.php\n";
-            die();
-        }
-        */
-        
-        include_once $tempFile;
-        if(unlink($tempFile) === false) {
-        	echo "WARNING: could not delete a temporary file $tempFile!!!\n";
-        }
-        
-        $this->modules[$name]['regiteration'] = $itr;
-        $info = new $newName();
-        return $info;
-    }
-
-    function loadModule($name, $firstStart = false) {
-        if($firstStart == true) {
-            //ugly fix to keep from loading several times
-            //this is temp until i implement using filehash or filemtime
-            return;
-        }
-        $info = $this->loadRegistry($name);
-        $this->modules[$name]['info'] = $info;
-
-        /*
-         * Load the modules php code
-         * change the name of the class eval it and keep track of
-         * its evaled class name and last modify times for "rehash"
-         * next go through loaded config and make binds and register sets
-         */
-
-
-        if(!is_object($info)) {
-            die("loadModule givin invalid registry\n");
-        }
-
-        /*
-         * search the folder for other php files to load...
-         * read files then replace any classnames
-         * eval the fixed code
-         * store indexes of original name and replaced name in
-         * module's array
-         *
-         * search modules code and replace calls to new Class
-         * with fixed names
-         */
-        $otherFiles = $this->searchDir("./modules/$name/", '*.php');
-        $filename = "./modules/$name/$name.php";
-        
-        foreach($otherFiles as $k => $fn) {
-            if($fn == $name.'.php') {
-                unset($otherFiles[$k]);
-            }
-            if($fn == 'registry.php') {
-                unset($otherFiles[$k]);
-            }
-        }
-        
-        $goahead = false;
-        if(!array_key_exists('fileHash', $this->modules[$name]) || $this->modules[$name]['fileHash'] != md5_file($filename)) {
-            $goahead = true;
-        }
-        foreach($otherFiles as $fk => $f) {
-            $hash = md5_file("./modules/$name/$f");
-            if(!array_key_exists('otherFilesHash', $this->modules[$name])
-                    || $hash != $this->modules[$name]['otherFilesHash'][$f]) {
-                $goahead = true;
-            }
-        }
-        if(!$goahead) {
-            echo "No files changed not loading $name\n";
-            return;
-        }
-
-        $code = file_get_contents($filename);
-        if ($code === false) {
-            echo "Error opening $filename not loading module\n";
-            return;
-        }
-
-		/*
-		 * Thanks to PHP-IRC for giving us the idea for this
-		 * using their regular expressions here
-		 */
-        if (!preg_match("/class[\s]+?".$name."[\s]+?extends[\s]+?Module[\s]+?{/", $code)) {
-            echo "Error: Could not find valid classdef in $filename";
-            return false;
-        }
-
-        $reload = false;
-        $itr = 0;
-        if(array_key_exists($name, $this->modules) && array_key_exists('iteration', $this->modules[$name])) {
-        //we are reloading
-        //if(filemtime($filename) > $this->modules[$name]['fileTime']) {
-            $this->modules[$name]['iteration']++;
-            $itr = $this->modules[$name]['iteration'];
-            $reload = true;
-        //}
-        }
-
-        $newName = $this->unique . '_' . $name . "_" . $itr;
-        $mainTempFile = './modules/' . $name . '/' . $newName . '.php';
-
-        $newcode = preg_replace("/(class[\s]+?)".$name."([\s]+?extends[\s]+?Module[\s]+?{)/", "\\1" . $newName . "\\2", $code);
-
-        $subcode = Array();
-        $classes = Array();
-        //go through all other php files in module dir
-        foreach($otherFiles as $f) {
-            $subcode[$f] = file_get_contents("./modules/$name/$f");
-            preg_match_all('/class[\s]+?(\w+)[\s]+?(extends|{)/', $subcode[$f], $matches);
-            //var_dump($matches);
-            foreach ($matches[1] as $c) {
-                $classes[$c] = $this->unique . '_' . $c . "_" . $itr;
-                $subcode[$f] = preg_replace("/(class[\s]+?)".$c."([\s]+?extends|[\s]+?{)/", "\\1" . $this->unique . '_' . $c . "_" . $itr . "\\2", $subcode[$f]);
-            }
-        }
-        $this->modules[$name]['otherFiles'] = $otherFiles;
-        $this->modules[$name]['classes'] = $classes;
-        foreach($otherFiles as $f) {
-            foreach ($classes as $c => $newcName) {
-               $subcode[$f] = preg_replace("/(=[\s]+?new[\s]+?)$c([\s]*?;|[\s]*?\()/", "\\1" . $newcName . "\\2", $subcode[$f]);
-               $subcode[$f] = preg_replace("/(extends[\s]+?)$c([\s]*?{)/", "\\1" . $newcName . "\\2", $subcode[$f]);
-            }
-            //var_dump($subcode[$f]);
-            $newfName = $this->unique . '_' . $f . "_" . $itr;
-            $tempFile = './modules/' . $name . '/' . $newfName . '.php';
-            
-            if(file_put_contents($tempFile, $subcode[$f]) === false) {
-            	die("Could not write temporary file $tempFile");
-            }
-            
-            echo "Loading file $tempFile\n";
-            include_once $tempFile;
-            unlink($tempFile);
-            /*
-            echo "Running eval for: ./modules/$name/$f";
-            if(eval("?>" . $subcode[$f] . "<?php ") === false) {
-                echo "PHP Error in code file ./modules/$name/$f\n";
-                return;
-            }
-            */
-        }
-        foreach ($classes as $c => $newcName) {
-            $newcode = preg_replace("/(=[\s]+?new[\s]+?)$c([\s]*?;|[\s]*?\()/", "\\1" . $newcName . "\\2", $newcode);
-        }
-        
-        if(file_put_contents($mainTempFile, $newcode) === false) {
-        	die("Could not write temporary file $mainTempFile");
-        }
-        
-        echo "Loading file $mainTempFile\n";
-        include_once $mainTempFile;
-        unlink($mainTempFile);
-        /*
-        echo "Running eval for: ./modules/$name/$filename\n";
-        if(eval("?>" . $newcode . "<?php ") === false) {
-            echo "PHP Error in code file ./modules/$name/$filename\n";
-            return;
-        }
-		*/
-        //everything parsed ok
-
-        $this->modules[$name]['iteration'] = $itr;
-        $this->modules[$name]['date'] = time();
-        $this->modules[$name]['fileTime'] = filemtime($filename);
-        $this->modules[$name]['fileHash'] = md5_file($filename);
-        foreach($otherFiles as $f) {
-            $this->modules[$name]['otherFilesHash'][$f] = md5_file("./modules/$name/$f");
-        }
-        $this->modules[$name]['classname'] = $newName;
-        
-        return $newName;
-    }
-    
-    function getItr($name) {
-        if(array_key_exists($name, $this->modules) && array_key_exists('iteration', $this->modules[$name])) {
-            return $this->modules[$name]['iteration'];
-        }
-    }
-
-    function searchDir($dir, $search) {
-        $d = opendir($dir);
-        $out = Array();
-        while($file = readdir($d)) {
-            if(pmatch($search, $file)) {
-                $out[] = $file;
-            }
-        }
-        return $out;
-    }
-}
 
 class ModuleManager {
     public $pIrc;
@@ -428,7 +131,6 @@ class ModuleManager {
         foreach($sq as $s) {
             if(array_key_exists($s['fromMod'], $this->slots) && array_key_exists($s['name'], $this->slots[$s['fromMod']])) {
                 foreach($this->slots[$s['fromMod']][$s['name']] as $slot) {
-                //$class = &$slot['class'];
                     $class = $this->modules[$slot['modName']]['class'];
                     $class->{$slot['func']}($s['args']);
                 }
@@ -441,8 +143,8 @@ class ModuleManager {
 
     }
 
-    function addSlot($name, $fromMod, &$class, $func, $modName = '') {
-        $this->slots[$fromMod][$name][] = Array('class' => &$class, 'func' => $func, 'modName' => $modName);
+    function addSlot($name, $fromMod, $func, $modName = '') {
+        $this->slots[$fromMod][$name][] = Array('func' => $func, 'modName' => $modName);
     }
 
     function delModSlots($mod) {
@@ -587,11 +289,6 @@ class ModuleManager {
             $newName = $this->MLoader->getName($name);
         }
         
-        if($info == null) {
-            echo "LoadModule got a null registry for $name\n";
-            return -1;
-        }
-        
         $reload = false;
         if(array_key_exists($name, $this->modules)
                 && is_array($this->modules[$name])
@@ -628,9 +325,9 @@ class ModuleManager {
         if($reload) {
             $this->delModSlots($name);
         }
-        if(isset($info->slots)) {
-            foreach($info->slots as $slot) {
-                $this->addSlot($slot[2], $slot[1], $this->modules[$name]['class'], $slot[0], $name);
+        if(isset($info['slots'])) {
+            foreach($info['slots'] as $func => $slot) {
+                $this->addSlot($slot['name'], $slot['from'], $func, $name);
             }
         }
         if($reload) {
@@ -639,25 +336,25 @@ class ModuleManager {
             $this->sendSignal('load', 'ModuleManager', Array('name' => $name));
         }
 
-        if(isset($info->XMLRPC)) {
-            foreach($info->XMLRPC as $proc) {
-                $this->pXMLRPC->setRPC($proc[0], $this->modules[$name]['class'], $proc[1]);
+        if(isset($info['XMLRPC'])) {
+            foreach($info['XMLRPC'] as $method => $func) {
+                $this->pXMLRPC->setRPC($method, $this->modules[$name]['class'], $func);
             }
         }
-        if(isset($info->leaf)) {
-            if(isset($info->leaf['hooks']) && is_array($info->leaf['hooks'])) {
-                foreach($info->leaf['hooks'] as $hook) {
-                    $this->pIrc->eventServer->addListener($hook[1], $this->modules[$name]['class'], $hook[0]);
+        if(isset($info['irc'])) {
+            if(isset($info['irc']['hooks']) && is_array($info['irc']['hooks'])) {
+                foreach($info['irc']['hooks'] as $func => $hook) {
+                    $this->pIrc->eventServer->addListener($hook['hook'], $this->modules[$name]['class'], $func);
                 }
             }
         }
         return $rv;
     }
 
-    function getRegistry($name, $section) {
+    function getConf($name, $section) {
         $info = $this->MLoader->getInfo($name);
-        if(array_key_exists($name, $this->modules) && isset($info->$section)) {
-            return $info->$section;
+        if(isset($this->modules[$name]) && isset($info['Modules'][$section])) {
+            return $info['Modules'][$section];
         }
     }
 

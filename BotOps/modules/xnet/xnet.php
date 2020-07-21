@@ -81,7 +81,7 @@ class xnet extends Module {
     
     /**
      * Sends an xmlrpc request to all bots
-     * @param class $cbClass class for callback
+     * @param object $cbClass class for callback
      * @param string $cbFunc function in class for callback
      * @param string $bot name of bot
      * @param string $method method to call

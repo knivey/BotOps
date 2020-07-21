@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 
 require_once('modules/Module.inc');
 require_once('Tools/Tools.php');
@@ -138,16 +139,16 @@ class trivia extends Module {
      * Get and format a random reply for the $this->RPL*
      * @todo Once we switch to php 5.6 this might become variadic function 
      * 
-     * @param string		$chan	channel to msg to
+     * @param CmdRequest    $r
      * @param Array 		$rpl 	one of the $this->RPL*
      * @param Array|string 	$args	string if only one otherwise use array of args
      */
-    function msgRpl($chan, $rpl, $args) {
+    function msgRpl(CmdRequest $r, $rpl, $args) {
     	if(!is_array($args)) {
     		$args = Array($args);
     	}
     	$f = $rpl[array_rand($rpl)];
-        $this->pIrc->msg($chan, vsprintf($f, $args));
+        $r->reply(vsprintf($f, $args));
     }
     
     /**
@@ -182,30 +183,23 @@ class trivia extends Module {
             }
         }
     }
-    
-    /**
-     * cmd to start the game
-     * @param string $nick
-     * @param string $chan
-     * @param string $msg
-     */
-    function cmd_trivia($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if(array_key_exists($chan, $this->running)) {
-            $this->msgRpl($chan, $this->RPL_RUNNING, $nick);
+
+    function cmd_trivia(CmdRequest $r) {
+        if(array_key_exists($r->chan, $this->running)) {
+            $this->msgRpl($r, $this->RPL_RUNNING, $r->nick);
             return;
         }
-        if($argc > 0) {
-        	$this->pIrc->msg($chan, "Trivia Notice: category selection not supported at this time ;(");
+        if(isset($r->args[0])) {
+        	throw new CmdException("Sorry, category selection not supported at this time ;(");
         }
         
-        $this->running[$chan] = Array(
+        $this->running[$r->chan] = Array(
             'current' => $this->getQuestion(),
             'count' => 0,
             'scores' => Array()
         );
-        $this->msgRpl($chan, $this->RPL_STARTED, $nick);
-        $this->showQuestion($chan);
+        $this->msgRpl($r, $this->RPL_STARTED, $r->nick);
+        $this->showQuestion($r->chan);
     }
 
     /**
@@ -245,9 +239,8 @@ class trivia extends Module {
      * Here we would browse possible categories..
      * @param string $chan
      */
-    function cmd_categories($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        $this->pIrc->msg($chan, "EVERYTHING! kthx");
+    function cmd_categories(CmdRequest $r) {
+        $r->reply("EVERYTHING! kthx");
     }
     
     /**
@@ -266,75 +259,36 @@ class trivia extends Module {
         }
         $this->pIrc->msg($chan, 'Scores: '. trim($out));
     }
-    
-    /**
-     * stop trivia
-     * @param string $nick
-     * @param string $chan
-     * @param string $msg
-     */
-    function cmd_strivia($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        $cur = $this->getCurrent($chan);
+
+    function cmd_strivia(CmdRequest $r) {
+        $cur = $this->getCurrent($r->chan);
         if(!$cur) {
-        	$this->msgRpl($chan, $this->RPL_NOTRUNNING, $nick);
+        	$this->msgRpl($r, $this->RPL_NOTRUNNING, $r->nick);
         	return;
         }
-        $this->msgRpl($chan, $this->RPL_NOANSWER, $cur->answers->toString());
-        $this->msgRpl($chan, $this->RPL_STOPPED, $nick);
-        $this->showScores($chan);
-        unset($this->running[$chan]);
-    }
-    
-    /**
-     * Not sure what this should do yet
-     * @param string $nick
-     * @param string $chan
-     * @param string $msg
-     */
-    function cmd_hint($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if(!array_key_exists($chan, $this->running)) {
-        	$this->msgRpl($chan, $this->RPL_NOTRUNNING, $nick);
-        	return;
-        }
+        $this->msgRpl($r, $this->RPL_NOANSWER, $cur->answers->toString());
+        $this->msgRpl($r, $this->RPL_STOPPED, $r->nick);
+        $this->showScores($r->chan);
+        unset($this->running[$r->chan]);
     }
 
-    /**
-     * skip a question
-     * @param string $nick
-     * @param string $chan
-     * @param string $msg
-     */
-    function cmd_skip($nick, $chan, $msg) {
-    	$cur = $this->getCurrent($chan);
+    function cmd_skip(CmdRequest $r) {
+    	$cur = $this->getCurrent($r->chan);
     	if(!$cur) {
-    		$this->msgRpl($chan, $this->RPL_NOTRUNNING, $nick);
+    		$this->msgRpl($r, $this->RPL_NOTRUNNING, $r->nick);
     		return;
     	}
         $a = $cur->answers->toString();
-        $this->msgRpl($chan, $this->RPL_SKIPPED, Array($nick, $a));
-        $this->nextQuestion($chan);
+        $this->msgRpl($r, $this->RPL_SKIPPED, Array($r->nick, $a));
+        $this->nextQuestion($r->chan);
     }
 
-    /**
-     * get some information about trivia
-     * @param string $nick
-     * @param string $chan
-     * @param string $msg
-     */
-    function cmd_triviainfo($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
+    function cmd_triviainfo(CmdRequest $r) {
+        $r->notice("Coming soon.");
     }
 
-    /**
-     * nothing?
-     * @param string $nick
-     * @param string $chan
-     * @param string $msg
-     */
-    function cmd_triviastats($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
+    function cmd_triviastats(CmdRequest $r) {
+        $r->reply("Stats coming soon.");
     }
     
     /**
@@ -375,4 +329,4 @@ class trivia extends Module {
     }
 }
 
-?>
+

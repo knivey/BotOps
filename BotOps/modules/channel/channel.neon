@@ -1,0 +1,79 @@
+description: General channel stuff
+require: [CmdReg]
+XMLRPC:
+    delchan: rpc_delchan
+    addchan: rpc_addchan
+    loadjoin: rpc_loadjoin
+    globalmsg: rpc_globalmsg
+    names: rpc_names
+irc:
+    hooks:
+#        h_authed: {hook: authed}
+        h_authed: {hook: "001"}
+        h_gotTopic: {hook: 332}
+        h_noTopic: {hook: 331}
+        h_join: {hook: join}
+        h_nick: {hook: nick}
+        h_354: {hook: 354}
+        h_part: {hook: part}
+        h_kick: {hook: kick}
+        h_quit: {hook: quit}
+        h_topicChange: {hook: topic}
+        h_gotTopicTime: {hook: 333}
+        h_329: {hook: 329}
+        h_324: {hook: 324}
+        h_367: {hook: 367}
+        h_471: {hook: 471}
+        h_473: {hook: 473}
+        h_474: {hook: 474}
+        h_475: {hook: 475}
+        h_ban: {hook: +ban}
+        h_unban: {hook: -ban}
+        h_op: {hook: +op}
+        h_deop: {hook: -op}
+        h_voice: {hook: +voice}
+        h_devoice: {hook: -voice}
+        h_modeAdd: {hook: +mode}
+        h_modeDel: {hook: -mode}
+        h_disconnected: {hook: disconnected}
+Modules:
+    CmdReg:
+        funcs:
+            cmd_peek: {desc: Peek at a channel, needchan: true}
+            cmd_addchan: {syntax: <owner>, desc: Add a channel, needchan: true}
+            cmd_delchan: {syntax: <reason>..., desc: Remove a channel, needchan: true}
+            cmd_unsuspend: {desc: Unsuspend a channel, needchan: true}
+            cmd_suspend: {syntax: <reason>..., desc: Suspend a channel, needchan: true}
+            cmd_channels: {desc: See a list of channels}
+            cmd_movechan: {syntax: <to_chan>, desc: Move a channel, needchan: true}
+            cmd_names: {desc: List users currently in channel, needchan: true}
+        binds:
+            peek: {access: O, func: cmd_peek}
+            addchan: {access: O, func: cmd_addchan, loglvl: 2}
+            delchan: {access: O, func: cmd_delchan, loglvl: 2}
+            unsuspend: {access: O, func: cmd_unsuspend, loglvl: 2}
+            suspend: {access: O, func: cmd_suspend, loglvl: 2}
+            channels: {access: O, func: cmd_channels}
+            movechan: {access: O, func: cmd_movechan, loglvl: 2}
+            names: {func: cmd_names}
+    SetReg:
+        channel:
+            greeting: {access: 1, desc: "Chan greet", opts: [default: "*"]}
+            greeting2: {access: 1, desc: "Second chan greet", opts: [default: "*"]}
+            nodelete: {access: O, desc: "Prevent delchan", opts: [default: "off", "on", "off"]}
+            globalmsg: {access: 1, desc: "Allow global msgs", opts: [default: "on", "on", "off"]}
+            gtype: {access: 1, desc: "Greeting Delivery method", opts: [default: "notice", "notice", "pm", "chan"]}
+            trig: {access: 1, desc: "Chan trigger", opts: [default: "."]}
+            onjoin: {access: S, desc: "Cmd to send when joining", opts: [default: "*"]}
+        channel_alias:
+            trigger: trig
+    logs:
+        date: {type: varchar(255)}
+        action: {type: varchar(255)}
+        target: {type: varchar(255)}
+        nick: {type: varchar(255)}
+        hand: {type: varchar(255)}
+        bot: {type: varchar(255)}
+        host: {type: text}
+        targetb: {type: text}
+        msg: {type: text}

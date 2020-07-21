@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 require_once('modules/Module.inc');
 require_once('Http.inc');
 
@@ -102,14 +102,13 @@ class castinfo extends Module {
 
     public $count = 0;
     
-    public function cmd_casttrack($nick, $target, $arg2) {
-        $url = parse_url($arg2);
+    public function cmd_casttrack(CmdRequest $r) {
+        $url = parse_url($r->args[0]);
 		if($url === false || !isset($url['host'])) {
-			$this->pIrc->msg($target, "The url was not recognised.");
-			return;
+			throw new CmdException("The url was not recognised.");
 		}
         $cast = new cast();
-        $cast->chan = strtolower($target);
+        $cast->chan = strtolower($r->chan);
         $cast->number = $this->count++;
         $this->casts[$cast->number] = $cast;
         $cast->http = new Http($this->pSockets, $cast, 'recv');
@@ -120,18 +119,15 @@ class castinfo extends Module {
         $cast->irc = $this->pIrc;
     }
     
-    public function cmd_caststop($nick, $target, $arg2) {
-        $this->pIrc->msg($target, "Casts will never be stopped.");
+    public function cmd_caststop(CmdRequest $r) {
+    	//TODO implement stopping
+        $r->reply("Casts will never be stopped.");
     }
     
-	public function cmd_castinfo($nick, $target, $arg2) {
-        if(empty($arg2)) {
-            return $this->BADARGS;
-        }
-		$url = parse_url($arg2);
+	public function cmd_castinfo(CmdRequest $r) {
+		$url = parse_url($r->args[0]);
 		if($url === false || !isset($url['host'])) {
-			$this->pIrc->msg($target, "The url was not recognised.");
-			return;
+			throw new CmdException("The url was not recognised.");
 		}
 		if(!isset($url['path']) || $url['path'] == '/') {
 			$path = '/index.html';
@@ -152,7 +148,8 @@ class castinfo extends Module {
 		//$this->pIrc->msg($target, "Attempting query to $moo");
 		echo "CastInfo Query: $moo\n";
 		$lol = new Http($this->pSockets, $this, 'castinfoRecv');
-		$lol->getQuery($moo, Array($moo, $target));
+		$t = $r->chan ?? $r->nick;
+		$lol->getQuery($moo, Array($moo, $t));
 	}
 	
 	public function castinfoRecv($data, $info) {

@@ -1,34 +1,29 @@
 <?php
+require_once(__DIR__ . '/../Module.inc');
+//require_once 'CmdArgs.php';
+//require_once 'CmdBind.php';
+//require_once 'CmdFunc.php';
+require_once 'CmdRequest.php';
 
-require_once('modules/Module.inc');
+use \Ayesh\CaseInsensitiveArray\Strict as CIArray;
 
 /**
  * Keep track of our commands from modules and bindings to them
  */
 class CmdReg extends Module {
-    public $funcs;
-	/* Store the funcs section
-	 * $funcs[mod_name][name] = Array();
-	 * [class] = reference to the class
-         * [class_name] = modified name of class
-	 * [name] = our name for the func
-	 * [func] = name of the func in the class
-	 * [syntax]
-	 * [description]
-	 */
+    /**
+     * @var CIArray ["module" => ["func" => CmdFunc]]
+     */
+    public CIArray $funcs;
 
-    //    name access func "syntax" "description" "args"
-    public $binds = Array();
-	/* $binds[bindname] = Array()
-	 * [bname] = name of bind
-	 * [class_name] = name of the class
-	 * [func] = name of the function ($this->funcs[classname][name])
-	 * [args]
-	 * [log] = log level
-	 * [access]
-	 * [syntax]
-	 * [description]
-	 */
+    public CIArray $binds;
+
+
+	public function __construct()
+    {
+        $this->funcs = new CIArray();
+        $this->binds = new CIArray();
+    }
 
     /*
      * Possible return values
@@ -62,296 +57,198 @@ class CmdReg extends Module {
          echo "CmdReg rehash finished\n";
      }
 
-     function cmd_showfuncs($nick, $target, $args) {
-        $arg = explode(' ', $args);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $hflags = $this->gM('user')->flags($hand);
-        $chan = strtolower($target);
-        $access = $this->gM('user')->access($hand, $chan);
-        if(!empty($arg[0])) {
-            $mod = $arg[0];
-            if(!array_key_exists($mod, $this->funcs)) {
-                return $this->rV['ERROR'];;
+    //I might not want this as an IRC command due to large output, but keeping for now
+    function cmd_showfuncs(CmdRequest $r)
+    {
+        if (isset($r->args['mod'])) {
+            $mod = $r->args['mod'];
+            if (!isset($this->funcs[$mod])) {
+                throw new CmdException("$mod doesnt exist");
             }
-            $funcs = implode(' ', array_keys($this->funcs[$mod]));
-            $this->pIrc->notice($nick, "Functions for $mod: $funcs");
-        } else {
-            $out[] = Array('module', 'funcs');
-            foreach($this->funcs as $m => $d) {
-                $chan = Array();
-                $pm = Array();
-                foreach(array_keys($d) as $lol) {
-                    if(substr($lol, 0, 4) == 'chan') {
-                        $chan[] = substr($lol, 4);
-                    }
-                    if(substr($lol, 0, 2) == 'pm') {
-                        $pm[] = substr($lol, 2);
-                    }
-                }
-                $out[] = Array($m,'Chan: ' . implode(' ', $chan) . ' Pm: ' . implode(' ', $pm));
-            }
-            $out = multi_array_padding($out);
-            foreach($out as &$line) {
-                $this->pIrc->notice($nick, implode('', $line));
-            }
-            return $this->rV['OK'];
+            $keys = [];
+            foreach ($this->funcs[$mod] as $k => $v) $keys[] = $k;
+            $funcs = implode(' ', array_keys($keys));
+            $r->notice("Functions for $mod: $funcs");
+            return;
         }
-     }
-     
-     function cmd_cmdhistory($nick, $chan, $msg) {
-         list($argc, $argv) = niceArgs($msg);
-         //maybe customize search
-         $rv = $this->OK;
-         if($argc == 1) {
-             $chan = $argv[0];
-             $hand = $this->gM('user')->byNick($nick);
-             $caccess = $this->gM('user')->access($hand, $chan);
-             $hasaxs = $this->hasAxs($caccess, $hand, 4);
-             if(!is_numeric($hasaxs)) {
-                 $this->pIrc->notice($nick, $hasaxs);
-             } else {
-                 if($hasaxs == -1) {
-                     $rv = $this->OVERRIDE;
-                 }
-             }
-         }
-         $list = $this->gM('logs')->getLogs('CmdReg', Array('target' => Array('=', $chan)));
-         if(empty($list)) {
-             $this->pIrc->notice($nick, "No results found");
-             return $rv;
-         }
-         $list = array_reverse($list);
-         foreach($list as $i) {
-             $d = strftime('%D %T', $i['date']);
-             $this->pIrc->notice($nick, "[$d] ($i[bot]:$i[target]) [$i[nick]:$i[hand]]: $i[cmd] $i[msg]", 0, 1);
-         }
-         return $rv;
-     }
-     
-     function cmd_unbind($nick, $target, $args) {
-        $arg = explode(' ', $args);
-        //$host = $this->pIrc->n2h($nick);
-        //$hand = $this->gM('user')->byHost($host);
-        //$hflags = $this->gM('user')->flags($hand);
-        //$access = $this->gM('user')->access($hand, $chan);
-        // ^ later we may consider lowering access and we will need this to
-        // prevent O from modifying A binds
-        if(empty($arg[1])) {
-            return $this->rV['BADARGS'];
+        $out[] = Array('module', 'funcs');
+        foreach ($this->funcs as $m => $d) {
+            $keys = [];
+            foreach ($d as $k => $v) $keys[] = $k;
+            $out[] = Array($m, implode(' ', $keys));
         }
-        $via = strtolower($arg[0]);
-        if($via != 'pm' && $via != 'chan') {
-            return $this->rV['BADARGS'];
+        $out = multi_array_padding($out);
+        foreach ($out as &$line) {
+            $r->notice(implode('', $line), 0, 1);
         }
-        $bind = strtolower($arg[1]);
-        if(!$this->IsBound($via, $bind)) {
-            $this->pIrc->notice($nick, "Warning! binding $via $bind not found.");
-            return $this->rV['ERROR'];
-        }
-        
-        try {
-            $stmt = $this->pMysql->prepare("DELETE FROM `Binds` WHERE `bname` = :bind AND `onlyFrom` = :via");
-            $stmt->bindValue(':bind', $bind);
-            $stmt->bindValue(':via', $via);
-            $stmt->execute();
-            $stmt->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-        }
-        
-        unset($this->binds[$via.$bind]);
-        $this->gM('xnet')->sendToAll(null, null, 'unbind', Array($via.$bind));
-        $this->pIrc->notice($nick, "Binding $via $bind removed.");
-     }
-     
-     function cmd_modcmd($nick, $chan, $args) {
-         list($argc, $argv) = niceArgs($args);
-         //modcmd via bname [option] [value]
-         if($argc < 2) {
-             return $this->BADARGS;
-         }
-         $via = strtolower($argv[0]);
-         $bind = strtolower($argv[1]);
-         if(!$this->IsBound($via, $bind)) {
-             $this->pIrc->notice($nick, "Warning! binding $via $bind not found.");
-             return $this->rV['ERROR'];
-         }
-         if($argc < 3) {
-             $this->modcmdShow($nick, $via . $bind);
-             return $this->ERROR;
-         }
-         $option = strtolower($argv[2]);
-         $aoptions = Array('args','log','access','syntax','description','class_name');
-         if(!in_array($option, $aoptions)) {
-             $this->pIrc->notice($nick, "Please choose from: ". implode(', ', $aoptions));
-             return $this->ERROR;
-         }
-         if($argc < 4) {
-             $this->pIrc->notice($nick, "Please specify a new value.");
-             return $this->ERROR;
-         }
-         $value = arg_range($argv, 3, -1);
-         $bi = $this->binds[$via.$bind];
-         $bi[$option] = $value;
-         $this->binds[$via.$bind] = $bi;
-         $this->gM('xnet')->sendToAll(null, null, 'modcmd', Array($via.$bind, $this->binds[$via.$bind]));
-         try {
-             $stmtd = $this->pMysql->prepare("DELETE FROM `Binds` WHERE `bname` = :bind AND `onlyFrom` = :via");
-             $stmtd->bindValue(':bind', $bind);
-             $stmtd->bindValue(':via', $via);
-             $stmtd->execute();
-             $stmtd->closeCursor();
-             $stmti = $this->pMysql->prepare("INSERT INTO `Binds` (bname,classname,used,access,args,log,func,syntax,description,onlyFrom)".
-                     " VALUES(:bind,:class_name,0,:access,:args,:log,:func,:syntax,:description,:via)");
-             $stmti->bindValue(':bind', $bind);
-             $stmti->bindValue(':class_name', $bi['class_name']);
-             $stmti->bindValue(':access', $bi['access']);
-             $stmti->bindValue(':args', $bi['args']);
-             $stmti->bindValue(':log', $bi['log']);
-             $stmti->bindValue(':func', $bi['func']);
-             $stmti->bindValue(':syntax', $bi['syntax']);
-             $stmti->bindValue(':description', $bi['description']);
-             $stmti->bindValue(':via', $via);
-             $stmti->execute();
-             $stmti->closeCursor();
-         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-        }
-     }
-     
-     function modcmdShow($nick, $vbname) {
-         if(!array_key_exists($vbname, $this->binds)) {
-             $this->pIrc->notice($nick, "That bind doesn't exist.");
-             return;
-         }
-         $bind = $this->binds[$vbname];
-         $this->pIrc->notice($nick, "\2Bind:\2 $bind[bname] \2Via:\2 $bind[onlyFrom] ".
-                 "\2Mod:\2 $bind[class_name] \2Func:\2 $bind[func] \2Args:\2 $bind[args] \2Log:\2 $bind[log] ".
-                 "\2Access:\2 $bind[access] \2Syntax:\2 $bind[syntax] \2Desc:\2 $bind[description]");
-     }
-
-     function rpc_unbind($p) {
-         unset($this->binds[$p[0]]); 
-     }
-     
-     function rpc_bind($p) {
-         $this->binds[$p[0]] = $p[1];
-     }
-     
-     function rpc_modcmd($p) {
-         $this->binds[$p[0]] = $p[1];
-     }
-     
-     function cmd_bind($nick, $target, $args) {
-        $arg = explode(' ', $args);
-        //$host = $this->pIrc->n2h($nick);
-        //$hand = $this->gM('user')->byHost($host);
-        //$hflags = $this->gM('user')->flags($hand);
-        //$access = $this->gM('user')->access($hand, $chan);
-        // ^ later we may consider lowering access and we will need this to
-        // prevent O from modifying A binds
-        if(empty($arg[3])) {
-            return $this->rV['BADARGS'];
-        }
-        $via = strtolower($arg[0]);
-        if($via != 'pm' && $via != 'chan') {
-            return $this->rV['BADARGS'];
-        }
-        $bind = strtolower($arg[1]);
-        $mod = $arg[2];
-        $func = $arg[3];
-        if(!empty($arg[4])) {
-            $bargs = arg_range($arg, 4, -1);
-        } else {
-            $bargs = '';
-        }
-
-        $description = '';
-        $syntax = '';
-        $access = '0';
-        $log = 0;
-
-        if($this->IsBound($via, $bind)) {
-            $this->pIrc->notice($nick, "Warning! binding $via $bind already found, (updating it) ($mod.$func)");
-            try {
-                $stmt = $this->pMysql->prepare("DELETE FROM `Binds` WHERE `bname` = :bind AND `onlyFrom` = :via");
-                $stmt->bindValue(':bind', $bind);
-                $stmt->bindValue(':via', $via);
-                $stmt->execute();
-                $stmt->closeCursor();
-            } catch (PDOException $e) {
-                $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-                echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-                $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-            }
-        }
-
-        $this->binds[$via.$bind] = Array(
-            'bname' => $bind,
-            'class_name' => $mod,
-            'func' => $func,
-            'args' => $bargs,
-            'log' => $log,
-            'access' => $access,
-            'syntax' => $syntax,
-            'description' => $description,
-            'onlyFrom' => $via
-        );
-        $this->gM('xnet')->sendToAll(null, null, 'bind', Array($via.$bind, $this->binds[$via.$bind]));
-        try {
-             $stmti = $this->pMysql->prepare("INSERT INTO `Binds` (bname,classname,used,access,args,log,func,syntax,description,onlyFrom)".
-                     " VALUES(:bind,:class_name,0,:access,:args,:log,:func,:syntax,:description,:via)");
-             $stmti->bindValue(':bind', $bind);
-             $stmti->bindValue(':class_name', $mod);
-             $stmti->bindValue(':access', $access);
-             $stmti->bindValue(':args', $bargs);
-             $stmti->bindValue(':log', $log);
-             $stmti->bindValue(':func', $func);
-             $stmti->bindValue(':syntax', $syntax);
-             $stmti->bindValue(':description', $description);
-             $stmti->bindValue(':via', $via);
-             $stmti->execute();
-             $stmti->closeCursor();
-         } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-        }
-        $this->pIrc->notice($nick, "Finished binding $via $bind. ($mod.$func)");
-        $this->modcmdShow($nick, $via. $bind);
     }
 
-    function cmd_command($nick, $target, $args) {
-        $arg = explode(' ', $args);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $hflags = $this->gM('user')->flags($hand);
-        $chan = strtolower($target);
-        $access = $this->gM('user')->access($hand, $chan);
-        $via = strtolower($arg[0]);
-        if($via != 'pm' && $via != 'chan') {
-            $bind = $via;
-            $via = 'chan';
-        } else {
-            if(empty($arg[1])) {
-                return $this->rV['BADARGS'];
-            }
-            $bind = strtolower($arg[1]);
+    function cmd_cmdhistory(CmdRequest $r)
+    {
+        //In future maybe customize search
+        $list = $this->gM('logs')->getLogs('CmdReg', Array('target' => Array('=', $r->chan)));
+        if (empty($list)) {
+            $r->notice("No results found");
+            return;
         }
-        if(!$this->IsBound($via, $bind)) {
-            $this->pIrc->notice($nick, "Command binding: $via $bind not found.");
-            return $this->rV['ERROR'];
+        $list = array_reverse($list);
+        foreach ($list as $i) {
+            $d = strftime('%D %T', $i['date']);
+            $r->notice("[$d] ($i[bot]:$i[target]) [$i[nick]:$i[hand]]: $i[cmd] $i[msg]", 0, 1);
         }
-        $info = $this->binds[$via.$bind];
-        $if = $this->funcs[$info['class_name']][$via . $info['func']];
-        $this->pIrc->rnotice($nick, "$via $bind is a binding of $info[class_name].$info[func], using args: $info[args]");
-        $this->pIrc->notice($nick, "$via $bind has been used " . $this->getUsed($via, $bind) . " times. You need access $info[access] to use $info[func].");
-        $this->pIrc->notice($nick, "Syntax for $info[func]: $if[syntax] Description: $if[description]");
+    }
+
+    function cmd_unbind(CmdRequest $r)
+    {
+        $bind = $r->args['bind'];
+        if (!isset($this->binds[$bind])) {
+            throw new CmdException("binding $bind not found.");
+        }
+
+        //TODO make sure bind is in DB then mark it as deleted. Should prevent it from returning on next bot start
+        $stmt = $this->pMysql->prepare("DELETE FROM `Binds` WHERE `bname` = :bind");
+        $stmt->bindValue(':bind', $bind);
+        $stmt->execute();
+        $stmt->closeCursor();
+
+        unset($this->binds[$bind]);
+        $this->gM('xnet')->sendToAll(null, null, 'unbind', Array($bind));
+        $r->notice("Binding $bind removed.");
+    }
+
+    function cmd_modcmd(CmdRequest $r)
+    {
+        $bind = $r->args['bind'];
+        if (!isset($this->binds[$bind])) {
+            throw new CmdException("binding $bind not found.");
+        }
+        if (!isset($r->args['setting'])) {
+            $this->modcmdShow($r, $bind);
+            return;
+        }
+        $option = strtolower($r->args['setting']);
+        $aoptions = Array('args', 'loglvl', 'access', 'module', 'func', 'name');
+        if (!in_array($option, $aoptions)) {
+            throw new CmdException("Please choose from: " . implode(', ', $aoptions));
+        }
+        $value = $r->args['value'];
+        if (!$value) {
+            throw new CmdException("Please specify a new value.");
+        }
+
+        //TODO Need to do some validation here
+        $this->binds[$bind]->$option = $value;
+        /**
+         * @var CmdBind $bi
+         */
+        $bi = $this->binds[$bind];
+        //TODO can we send an object here?
+        $this->gM('xnet')->sendToAll(null, null, 'modcmd', Array($bind, $this->binds[$bind]));
+
+        $stmtd = $this->pMysql->prepare("DELETE FROM `Binds` WHERE `bname` = :bind");
+        $stmtd->bindValue(':bind', $bind);
+        $stmtd->execute();
+        $stmtd->closeCursor();
+        //do we really want to reset used counter?
+        $stmti = $this->pMysql->prepare("INSERT INTO `Binds` (bname,classname,used,access,args,log,func)" .
+            " VALUES(:bind,:class_name,0,:access,:args,:log,:func)");
+        $stmti->bindValue(':bind', $bind);
+        $stmti->bindValue(':class_name', $bi->module);
+        $stmti->bindValue(':access', $bi->access);
+        $stmti->bindValue(':args', $bi->args);
+        $stmti->bindValue(':loglvl', $bi->loglvl);
+        $stmti->bindValue(':func', $bi->func);
+        $stmti->execute();
+        $stmti->closeCursor();
+        $r->notice("Bind $bind has been updated", 0, 1);
+    }
+
+    function modcmdShow(CmdRequest $r, $bname)
+    {
+        if (!isset($this->binds[$bname])) {
+            throw new CmdException("That bind doesn't exist.");
+        }
+        /**
+         * @var CmdBind $bind
+         */
+        $bind = $this->binds[$bname];
+        /**
+         * @var CmdFunc $func
+         */
+        $func = $this->funcs[$bind->module][$bind->func];
+        $r->notice("\2Module:\2 $bind->module \2Bind:\2 $bind->name \2pmonly:\2 $func->pmonly " .
+            "\2Func:\2 $bind->func \2Args:\2 $bind->args \2Loglvl:\2 $bind->loglvl " .
+            "\2Access:\2 $bind->access \2Syntax:\2 $func->syntax \2Desc:\2 $func->desc", 0, 1);
+    }
+
+    function rpc_unbind($p)
+    {
+        unset($this->binds[$p[0]]);
+    }
+
+    function rpc_bind($p)
+    {
+        $this->binds[$p[0]] = $p[1];
+    }
+
+    function rpc_modcmd($p)
+    {
+        $this->binds[$p[0]] = $p[1];
+    }
+
+    function cmd_bind(CmdRequest $r)
+    {
+        $bind = $r->args['bind'];
+        $mod = $r->args['module'];
+        $func = $r->args['function'];
+        $args = $r->args['function'];
+        $access = '0';
+        $loglvl = 0;
+
+        if (isset($this->binds[$bind])) {
+            $r->notice("Warning! binding $bind already found, will update it to $mod.$func");
+            $stmt = $this->pMysql->prepare("DELETE FROM `Binds` WHERE `bname` = :bind");
+            $stmt->bindValue(':bind', $bind);
+            $stmt->execute();
+            $stmt->closeCursor();
+            unset($this->binds[$bind]);
+        }
+
+        $this->setBind($mod, $bind, $func, $access, $args, $loglvl);
+
+        $this->gM('xnet')->sendToAll(null, null, 'bind', Array($bind, $this->binds[$bind]));
+
+        $stmti = $this->pMysql->prepare("INSERT INTO `Binds` (bname,classname,used,access,args,log,func)" .
+            " VALUES(:bind,:class_name,0,:access,:args,:log,:func)");
+        $stmti->bindValue(':bind', $bind);
+        $stmti->bindValue(':class_name', $mod);
+        $stmti->bindValue(':access', $access);
+        $stmti->bindValue(':args', $args);
+        $stmti->bindValue(':log', $loglvl);
+        $stmti->bindValue(':func', $func);
+        $stmti->execute();
+        $stmti->closeCursor();
+
+        $r->notice("Finished binding $bind to $mod.$func");
+        $this->modcmdShow($r, $bind);
+    }
+
+    function cmd_command(CmdRequest $r) {
+        $name = $r->args['command'];
+        if(!isset($this->binds[$name])) {
+            throw new CmdException("Command binding $name not found.");
+        }
+        /**
+         * @var CmdBind $bind
+         */
+        $bind = $this->binds[$name];
+        /**
+         * @var CmdFunc $func
+         */
+        $func = $this->funcs[$bind->module][$bind->func];
+        $r->notice("$bind->name is a binding of {$bind->module}.{$bind->func}, using args: $bind->args");
+        $r->notice("$bind->name has been used " . $this->getUsed($bind->name) . " times. You need access $bind->access to use.");
+        $r->notice("Syntax for $func->name: $func->syntax Description: $func->desc");
     }
 
     //Slot for module unloaded
@@ -367,71 +264,86 @@ class CmdReg extends Module {
     }
 
     //modules that catch unknown commands
-    public $catchers = Array();
+    public array $catchers = Array();
     function reloaded($args) {
-        echo "CmdReg unloading module $args[name] for reload\n";
+        echo "CmdReg unloading module {$args['name']} for reload\n";
         $this->unloaded($args);
         $this->loaded($args);
     }
 
-    public $bloaded = false;
-    //Slot for module loaded
+    public bool $bindsLoaded = false;
+
+    /**
+     * Slot for module loaded
+     * @param $args
+     * @throws Exception
+     */
     function loaded($args) {
-        echo "CmdReg loading module $args[name]\n";
-        if(!$this->bloaded) {
-            $this->bloaded = true;
-            $this->loadBinds();
-        }
-        $info = $this->pMM->getRegistry($args['name'], 'CmdReg');
-        $name = $args['name'];
+        echo "CmdReg loading module {$args['name']}\n";
+        $this->loadBinds();
+        $info = $this->pMM->getConf($args['name'], 'CmdReg');
+        $module = $args['name'];
         if($info == null) return;
-        //Handle our section of registry.conf here
-        
+
         //check if module wants to catch unknown commands
         //notice the first module that returns true stop all other mods
         //from seeing that command
         if(array_key_exists('catch', $info) && $info['catch'] != null) {
-            $this->catchers[] = Array('module' => $name, 'func' => $info['catch']);
+            $this->catchers[] = Array('module' => $module, 'func' => $info['catch']);
         }
         
-        if(array_key_exists('funcs', $info) && is_array($info['funcs'])) {
-            foreach($info['funcs'] as $f) {
-                if(!array_key_exists(4, $f)) {
-                    $f[4] = 'chan';
+        if(array_key_exists('funcs', $info)) {
+            if(!is_array($info['funcs'])) {
+                throw new Exception("funcs section is not an array");
+            } else {
+                foreach ($info['funcs'] as $func => $f) {
+                    $this->addFunc($module, $func, $f);
                 }
-                echo "CmdReg adding func: $name $f[0], $f[1], $f[2], $f[3], $f[4]\n";
-                $this->addFunc($name, $f[0], $f[1], $f[2], $f[3], trim($f[4]));
             }
         }
-        if(array_key_exists('binds', $info) && is_array($info['binds'])) {
-            foreach($info['binds'] as $b) {
-            //    name access func "syntax" "description" "args" loglvl
-                if(!array_key_exists(7, $b)) {
-                    $b[7] = 'chan';
+        if(array_key_exists('binds', $info)) {
+            if(!is_array($info['binds'])) {
+                throw new Exception("binds section is not an array");
+            }
+            foreach($info['binds'] as $bind => $b) {
+                if(!isset($b['func'])) {
+                    throw new Exception('bind $bind is missing func');
+                } else {
+                    $access = (string) ($b['access'] ?? '0');
+                    $args = $b['args'] ?? '';
+                    $loglvl = (int) ($b['loglvl'] ?? 0);
+                    $this->initialBind($module, $bind, $b['func'], $access, $args, $loglvl);
                 }
-                //initialBind($bname, $class_name, $func, $args, $log, $access, $syntax, $description, $onlyFrom) {
-                $this->initialBind($b[0], $name, $b[2], $b[5], $b[6], $b[1], $b[3], $b[4], $b[7]);
             }
         }
     }
 
-    function addFunc($className, $name, $func, $syntax, $description, $onlyFrom) {
-        echo "CmdReg adding func $func for $className\n";
-        $this->funcs[strtolower($className)][$onlyFrom . strtolower($name)] = Array(
-            'class' => $this->gM($className),
-        	//TODO Lets check ^ this for memory leak later
-            'name' => strtolower($name),
-            'func' => $func,
-            'syntax' => $syntax,
-            'description' => $description,
-            'onlyFrom' => $onlyFrom
-        );
+    /**
+     * @param string $module
+     * @param string $name
+     * @param array $f
+     * @throws Exception
+     */
+    function addFunc(string $module, string $name, array $f) {
+        if(!isset($f['desc']) || $f['desc'] == '') {
+            throw new Exception("Function given without description");
+        }
+        //We should get a TypeError if these are wrong
+        $pmonly = $f['pmonly'] ?? false;
+        $needchan = $f['needchan'] ?? false;
+        $func = new CmdFunc($module, $name, $f['desc'], $pmonly, $needchan);
+        $func->syntax = $f['syntax'] ?? '';
+
+        echo "CmdReg adding func $name for $module\n";
+        if(!isset($this->funcs[$module])) {
+            $this->funcs[$module] = new CIArray();
+        }
+        $this->funcs[$module][$name] = $func;
     }
 
-    function inMysql($via, $bname) {
+    function isBindInMysql($bname) {
         try {
-            $stmt = $this->pMysql->prepare("SELECT count(*) FROM `Binds` WHERE `onlyFrom` = :via AND `bname` = :bname");
-            $stmt->bindValue(':via', $via);
+            $stmt = $this->pMysql->prepare("SELECT count(*) FROM `Binds` WHERE `bname` = :bname");
             $stmt->bindValue(':bname', $bname);
             $stmt->execute();
             $res = $stmt->fetch();
@@ -446,107 +358,62 @@ class CmdReg extends Module {
         }
         return false;
     }
-    
-    //Binds loaded from reading registry.conf
-    function initialBind($bname, $class_name, $func, $args, $log, $access, $syntax, $description, $onlyFrom) {
-        $bname = strtolower($bname);
-        $class_name = strtolower($class_name);
-        $func = strtolower($func);
+
+    function setBind(string $module, string $name, string $func, string $access, string $args, int $loglvl) {
+        $bind = new CmdBind($module, $name, $func);
+        $bind->access = $access;
+        $bind->args  = $args;
+        $bind->loglvl = $loglvl;
+        $this->binds[$name] = $bind;
+    }
+
+    //Binds loaded from reading module.neon
+    function initialBind(string $module, string $name, string $func, string $access, string $args, int $loglvl) {
+        if(isset($this->binds[$name])) {
+            return;
+        }
+
         //first check if a bind bname exists in our binds db
-        $insert = true;
-        if($this->inMysql($onlyFrom, $bname)) {
-            $insert = false;
+        if($this->isBindInMysql($name)) {
             $this->loadBinds();
             return;
         }
-        //check if args,syntax,desc = '' if so fill with values
-        if($args == '' || $args == '$1-') {
-            if($syntax == '' && array_key_exists($class_name, $this->funcs) && array_key_exists($onlyFrom . $func, $this->funcs[$class_name])) {
-                $syntax = $this->funcs[$class_name][$onlyFrom . $func]['syntax'];
-            }
-            if($description == '' && array_key_exists($class_name, $this->funcs) && array_key_exists($onlyFrom . $func, $this->funcs[$class_name])) {
-                $description = $this->funcs[$class_name][$onlyFrom . $func]['description'];
-            }
-        } else {
-            if($syntax == '') {
-                $syntax = 'N/A';
-            }
-            if($description == '') {
-                $description = 'N/A';
-            }
-        }
 
-        $this->binds[$onlyFrom . $bname] = Array(
-            'bname' => $bname,
-            'class_name' => $class_name,
-            'func' => $func,
-            'args' => $args,
-            'log' => $log,
-            'access' => $access,
-            'syntax' => $syntax,
-            'description' => $description,
-            'onlyFrom' => $onlyFrom
-        );
+        $this->setBind($module, $name, $func, $access, $args, $loglvl);
 
-        //insert into mysql
-        if ($insert) {
-            try {
-                $stmti = $this->pMysql->prepare("INSERT INTO `Binds` (bname,classname,used,access,args,log,func,syntax,description,onlyFrom)" .
-                        " VALUES(:bind,:class_name,0,:access,:args,:log,:func,:syntax,:description,:via)");
-                $stmti->bindValue(':bind', $bname);
-                $stmti->bindValue(':class_name', $class_name);
-                $stmti->bindValue(':access', $access);
-                $stmti->bindValue(':args', $args);
-                $stmti->bindValue(':log', $log);
-                $stmti->bindValue(':func', $func);
-                $stmti->bindValue(':syntax', $syntax);
-                $stmti->bindValue(':description', $description);
-                $stmti->bindValue(':via', $onlyFrom);
-                $stmti->execute();
-                $stmti->closeCursor();
-            } catch (PDOException $e) {
-                $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-                echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-                //$this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-            }
+        //TODO maybe dont save bind in mysql except when created/modded in irc
+        //TODO rename the mysql cols to better match code
+        try {
+            $stmti = $this->pMysql->prepare("INSERT INTO `Binds` (bname,classname,used,access,args,log,func)" .
+                    " VALUES(:bind,:class_name,0,:access,:args,:log,:func)");
+            $stmti->bindValue(':bind', $name);
+            $stmti->bindValue(':class_name', $module);
+            $stmti->bindValue(':access', $access);
+            $stmti->bindValue(':args', $args);
+            $stmti->bindValue(':log', $loglvl);
+            $stmti->bindValue(':func', $func);
+            $stmti->execute();
+            $stmti->closeCursor();
+        } catch (PDOException $e) {
+            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
+            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
+            //$this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
         }
     }
 
-	/*
-	 * MySQL table Binds
-+-------------+--------------+------+-----+---------+----------------+
-| Field       | Type         | Null | Key | Default | Extra          |
-+-------------+--------------+------+-----+---------+----------------+
-| id          | int(11)      | NO   | PRI | NULL    | auto_increment |
-| bname       | varchar(32)  | YES  |     | NULL    |                |
-| classname   | varchar(32)  | YES  |     | NULL    |                |
-| used        | int(11)      | YES  |     | NULL    |                |
-| access      | varchar(32)  | YES  |     | NULL    |                |
-| args        | text         | YES  |     | NULL    |                |
-| log         | varchar(256) | YES  |     | NULL    |                |
-| func        | varchar(32)  | YES  |     | NULL    |                |
-| syntax      | varchar(512) | YES  |     | NULL    |                |
-| description | text         | YES  |     | NULL    |                |
-+-------------+--------------+------+-----+---------+----------------+
-10 rows in set (0.01 sec)
-	 */
     //Load all the binds from db into mem
     function loadBinds() {
+        if(!$this->bindsLoaded) {
+            $this->bindsLoaded = true;
+        } else {
+            return;
+        }
         //load them all even if the functions dont exist
         //we can check if they do when attempting to call
         try {
             foreach($this->pMysql->query("SELECT * FROM `Binds`") as $row) {
-                $row['bname'] = strtolower($row['bname']);
-                $oF = $row['onlyFrom'];
-                $this->binds[$oF . $row['bname']]['onlyFrom'] = $row['onlyFrom'];
-                $this->binds[$oF . $row['bname']]['bname'] = $row['bname'];
-                $this->binds[$oF . $row['bname']]['class_name'] = $row['classname'];
-                $this->binds[$oF . $row['bname']]['access'] = $row['access'];
-                $this->binds[$oF . $row['bname']]['args'] = $row['args'];
-                $this->binds[$oF . $row['bname']]['log'] = $row['log'];
-                $this->binds[$oF . $row['bname']]['func'] = $row['func'];
-                $this->binds[$oF . $row['bname']]['syntax'] = $row['syntax'];
-                $this->binds[$oF . $row['bname']]['description'] = $row['description'];
+                $name = strtolower($row['bname']);
+                $this->setBind($row['classname'], $name, $row['func'], $row['access'], $row['args'], $row['log']);
             }
         } catch (PDOException $e) {
             $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
@@ -555,15 +422,14 @@ class CmdReg extends Module {
         }
     }
 
-    function getUsed($from, $bind) {
-        if(!$this->IsBound($from, $bind)) {
-            return false;
+    function getUsed($bind) {
+        if(isset($this->binds[$bind])) {
+            return 0;
         }
         
         try {
-            $stmt = $this->pMysql->prepare("SELECT * FROM `Binds` WHERE `bname` = :bind AND `onlyFrom` = :via");
+            $stmt = $this->pMysql->prepare("SELECT * FROM `Binds` WHERE `bname` = :bind");
             $stmt->bindValue(':bind', $bind);
-            $stmt->bindValue(':via', $from);
             $stmt->execute();
             $row = $stmt->fetch();
             $stmt->closeCursor();
@@ -571,32 +437,10 @@ class CmdReg extends Module {
             $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
             echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
             $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            return 0;
         }
         
         return $row['used'];
-    }
-
-    /**
-     * Return if a $bind exists
-     * @param <string> $bind
-     * @return <bool>
-     */
-    function IsBound($from, $bind) {
-        $bind = $from . strtolower($bind);
-        if(array_key_exists($bind, $this->binds)) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    function funcExists($from, $mod, $name) {
-        if(!array_key_exists($mod, $this->funcs)) return;
-        if(array_key_exists($from . $name, $this->funcs[$mod])) {
-            return true;
-        } else {
-            return false;
-        }
     }
 
     /**
@@ -612,41 +456,23 @@ class CmdReg extends Module {
      * @return string|int
      */
     function hasAxs($caxs, $hand, $raxs) {
-        $access = $caxs;
-        $axs = $raxs;
         $override = false; //was overide needed for this
-        if(!is_numeric($axs)) { // access is a flag, means staff access
+        if(!is_numeric($raxs)) { // access is a flag, means staff access
             if($hand == '') {
                 return 'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() .' AUTH username password';
             }
-            if(!$this->gM('user')->hasflags($hand, $axs)) {
+            if(!$this->gM('user')->hasflags($hand, $raxs)) {
                 return "You do not have access to this BotOps staff command.";
-            } else {
-            //check if this could be used as custom bot owner command
-                /*
-                if (cisin($axs, 'U') && hasflags($hand, 'U')) {
-                    //the user owns a custom bot make sure its this one
-                    if (!$this->gM('user')->uhasbot($hand, $irc->nick)) {
-                        // they don't own this bot lets make sure they aren't staff
-                        // removed their U flag in the check then if they still have access it means they are staff
-                        $hflags = implode('', explode('U', $this->gM('user')->flags($hand)));
-                        if (!$this->gM('user')->hasflags($hand, $axs, $hflags)) {
-                            $irc->notice($nick, "You do not have access to this BotNetwork staff command.");
-                            return;
-                        }
-                    }
-                }
-                */
             }
         } else { // chan access
-            if(!($axs <= 0)) {// everyone can use if axs <= 0
+            if(!($raxs <= 0)) {// everyone can use if axs <= 0
                 if($hand == '') {
                     return 'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password';
                 }
-                if($access < $axs && !$this->gM('user')->hasOverride($hand)) {// no access
-                    return "You need at least $axs access.";
+                if($caxs < $raxs && !$this->gM('user')->hasOverride($hand)) {// no access
+                    return "You need at least $raxs access.";
                 } else {
-                    if($access < $axs) {
+                    if($caxs < $raxs) {
                         $override = true;
                     }
                 }
@@ -673,31 +499,18 @@ class CmdReg extends Module {
         return false;
     }
     
-    function cmd_gag($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        $hand = $this->gM('user')->byNick($nick);
-        if($argc < 3) {
-            return $this->BADARGS;
-        }
-        $host = $argv[0];
-        $duration = $argv[1];
-        $why = arg_range($argv, 2, -1);
-        $ok = $this->gag($host, $duration, $why, $hand);
+    function cmd_gag(CmdRequest $r) {
+        $ok = $this->gag($r->args['hostmask'], $r->args['duration'], $r->args['reason'], $r->account);
         if($ok != null) {
-            $this->pIrc->notice($nick, $ok);
-            return $this->ERROR;
+            throw new CmdException($ok);
         }
-        $this->pIrc->notice($nick, "$host is now gaged!");
+        $r->notice("{$r->args['hostmask']} is now gaged!");
     }
     
-    function cmd_isgag($nick, $chan, $msg) {
-        list($argc, $argv) = niceArgs($msg);
-        if($argc < 1) {
-            return $this->BADARGS;
-        }
-        $active = $this->isGag($argv[0]);
+    function cmd_isgag(CmdRequest $r) {
+        $active = $this->isGag($r->args['host']);
         if($active === false) {
-            $this->pIrc->notice($nick, "No gags found for that host (does not acces masks)");
+            $r->notice("No gags found for that host (does not acces masks)");
             return;
         }
         foreach($active as $gag) {
@@ -706,7 +519,7 @@ class CmdReg extends Module {
             } else {
                 $left = 'Never';
             }
-            $this->pIrc->notice($nick, "Gag[$gag[id]] \2HostMask:\2 $gag[host] \2Expires:\2 $left \2From:\2 $gag[from] \2Reason:\2 $gag[reason]");
+            $r->notice("Gag[$gag[id]] \2HostMask:\2 $gag[host] \2Expires:\2 $left \2From:\2 $gag[from] \2Reason:\2 $gag[reason]");
         }
     }
     
@@ -720,53 +533,35 @@ class CmdReg extends Module {
         } else {
             $expires = 0;
         }
-        
-        try {
-            $stmt = $this->pMysql->prepare("INSERT INTO `CmdReg_gags` (`host`,`from`,`expires`,`reason`)".
-                    " VALUES(:host,:from,:expires,:why)");
-            $stmt->bindValue(':host', str_replace('*', '%', $host));
-            $stmt->bindValue(':from', $from);
-            $stmt->bindValue(':expires', $expires);
-            $stmt->bindValue(':why', $why);
-            $stmt->execute();
-            $stmt->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n". $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-        }
+
+        $stmt = $this->pMysql->prepare("INSERT INTO `CmdReg_gags` (`host`,`from`,`expires`,`reason`)".
+                " VALUES(:host,:from,:expires,:why)");
+        $stmt->bindValue(':host', str_replace('*', '%', $host));
+        $stmt->bindValue(':from', $from);
+        $stmt->bindValue(':expires', $expires);
+        $stmt->bindValue(':why', $why);
+        $stmt->execute();
+        $stmt->closeCursor();
     }
     
     function ungag($id) {
-        try {
-            $stmt = $this->pMysql->prepare("DELETE FROM `CmdReg_gags` WHERE `id` = :id");
-            $stmt->bindValue(':id', $id);
-            $stmt->execute();
-            $stmt->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
-        }
+        $stmt = $this->pMysql->prepare("DELETE FROM `CmdReg_gags` WHERE `id` = :id");
+        $stmt->bindValue(':id', $id);
+        $stmt->execute();
+        $stmt->closeCursor();
     }
     
     function isGag($host) {
-        try {
-            $active = Array();
-            $stmt = $this->pMysql->prepare("SELECT * FROM `CmdReg_gags` WHERE :host LIKE host");
-            $stmt->bindValue(':host', $host);
-            $stmt->execute();
-            while ($gag = $stmt->fetch()) {
-                if ($gag['expires'] != 0 && $gag['expires'] < time()) {
-                    $this->ungag($gag['id']);
-                } else {
-                    $active[] = $gag;
-                }
+        $active = Array();
+        $stmt = $this->pMysql->prepare("SELECT * FROM `CmdReg_gags` WHERE :host LIKE host");
+        $stmt->bindValue(':host', $host);
+        $stmt->execute();
+        while ($gag = $stmt->fetch()) {
+            if ($gag['expires'] != 0 && $gag['expires'] < time()) {
+                $this->ungag($gag['id']);
+            } else {
+                $active[] = $gag;
             }
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
         }
         if(count($active) > 0) {
             return $active;
@@ -774,13 +569,38 @@ class CmdReg extends Module {
             return false;
         }
     }
+
+    /**
+     * Checks if this counts as a command
+     * commands start with botnick or trigger
+     * @param $target
+     * @param $args
+     * @return string|null null if not cmd, otherwise cmd
+     */
+    function checkChannelCmd($target, &$args): ?string {
+        $trig = $this->gM('channel')->getTrig($target);
+        //Check if botnick is trigger
+        if( strtolower($args[0]) != strtolower($this->pIrc->currentNick()) &&
+            strtolower($args[0]) != strtolower($this->pIrc->currentNick()) . ',' &&
+            strtolower($args[0]) != strtolower($this->pIrc->currentNick()) . ':'
+        ) {
+            if($trig == substr($args[0], 0, strlen($trig))) {
+                $args[0] = substr($args[0], strlen($trig));
+                return $args[0];
+            }
+        } else {
+            array_shift($args);
+            if (count($args) == 0 || empty($args[0])) {
+                return null;
+            }
+            return $args[0];
+        }
+        return null;
+    }
     
-    public $wascmd = false;
+    public bool $wascmd = false;
     function inmsg($nick, $target, $text) {
         $host = $this->pIrc->n2h($nick);
-        //if(pmatch("*@kurizu.*", $host)) {
-        //    return;
-        //}
         if($this->isGag("$nick!$host") !== false) {
             return;
         }
@@ -788,90 +608,79 @@ class CmdReg extends Module {
         if($text == NULL || count($args) == 0 || empty($args[0])) {
             return;
         }
-        $via = null;
-        if($target{0} == '#') {
-            $trig = $this->gM('channel')->getTrig($target);
-            if($trig == null) {
-                $trig = '@';
-            }
-            //Check if botnick is trigger
-            if( strtolower($args[0]) != strtolower($this->pIrc->currentNick()) &&
-                strtolower($args[0]) != strtolower($this->pIrc->currentNick()) . ',' &&
-                strtolower($args[0]) != strtolower($this->pIrc->currentNick()) . ':'
-              ) {
-                  $bntriggered = false;
-              } else {
-                  $bntriggered = true;
-              }
-            
-            if($trig != $args[0]{0} && !$bntriggered) {
+
+        if($target[0] == '#') {
+            $via = 'chan';
+            $cmd = $this->checkChannelCmd($target, $args);
+            if ($cmd == null) {
                 $this->wascmd = false;
                 return;
             }
-
-            if($bntriggered) {
-                array_shift($args);
-                if (count($args) == 0 || empty($args[0])) {
-                    return;
-                }
-                $cmd = 'chan' . strtolower($args[0]);
-            } else {
-                $args[0] = substr($args[0], 1);
-                $cmd = 'chan' . strtolower($args[0]);
-            }
-            $via = 'chan';
         } else {
-            //privmsg
-            $cmd = 'pm' . strtolower($args[0]);
             $via = 'pm';
+            $cmd = $args[0];
         }
-        if(!$this->IsBound($via, $args[0])) {
+        array_shift($args);
+        if($cmd[0] == '#') {
+            $target = $cmd;
+            $cmd = $args[0];
+            if($cmd == '') {
+                return;
+            }
+            array_shift($args);
+        }
+
+        $text = implode(' ', $args);
+        $this->wascmd = true;
+        $this->lastCmdInfo = array(
+            'args' => $text,
+            'cmd' => $cmd,
+        );
+        if(!isset($this->binds[$cmd])) {
             //check if another module can do something for this (clanbot)
-            $text = $args;
-            array_shift($text);
-            $text = implode(' ', $text);
             $this->gM('ParseUtil')->setArgy(argClean(explode(' ', $text)));
-            $this->wascmd = true;
-            $this->lastCmdInfo = array(
-                'args' => $text,
-                'cmd' => $args[0],
-            );
-            if(!$this->SendToMods($args[0], $nick, $target, $text)) {
+            if(!$this->SendToMods($cmd, $nick, $target, $text)) {
                 $this->wascmd = false;
             }
             return;
         }
-        $this->wascmd = true;
-
-        $classname = $this->binds[$cmd]['class_name'];
-        $bfunc = $this->binds[$cmd]['func'];
-        if(!$this->funcExists($via, $classname, $bfunc)) {
+        //Check if cmd can be come from via
+        /**
+         * @var CmdBind $bind
+         */
+        $bind = $this->binds[$cmd];
+        if(!isset($this->funcs[$bind->module][$bind->func])) {
+            echo "Bind $cmd called but missing function $bind->module $bind->func\n";
             return;
         }
-        $class = $this->gM($this->pMM->getCname($classname));
-        //$class = &$this->funcs[$classname][$this->binds[$cmd]['func']]['class'];
-        $func = $this->funcs[$classname][$via . $this->binds[$cmd]['func']]['func'];
-        $bargs = $this->binds[$cmd]['args'];
-        $text = $args;
-        array_shift($text);
-        $text = implode(' ', $text);
+        /**
+         * @var CmdFunc $func
+         */
+        $func = $this->funcs[$bind->module][$bind->func];
+        if($via != 'pm') {
+            if($func->pmonly) {
+                return;
+            }
+        }
+        if($via == 'pm') {
+            if($func->needchan && $target[0] != '#') {
+                $this->pIrc->notice($nick, "$cmd requires a channel to operate.");
+                return;
+            }
+        }
 
-        $this->lastCmdInfo = array(
-            'args' => $text,
-            'cmd' => $args[0],
-        );
-        
         $hand = $this->gM('user')->byNick($nick);
         $access = $this->gM('user')->access($hand, $target);
-        $axs = $this->binds[$cmd]['access'];
+        $axs = $bind->access;
         $override = false; //was overide needed for this
-        if(!is_numeric($axs)) { // access is a flag, means staff access
+        $hasoverride = $this->gM('user')->hasOverride($hand);
+        if(!is_numeric($axs) && $axs != '') { // access is a flag, means staff access
             /*
              * access could be o - isopped or v -isvoiced
              */
             if(cisin($axs, 'v') && ((!$this->pIrc->isop($target, $nick)
                     || !$this->pIrc->isvoice($target, $nick)) ||
-                    ($access < $axs && !$this->gM('user')->hasOverride($hand)))) {
+                    ($access < $axs && !$hasoverride))) {
                 $this->pIrc->notice($nick, "You need access voice or higher in $target to use this command");
                 return;
             } else {
@@ -882,7 +691,7 @@ class CmdReg extends Module {
                 $axs = str_replace('v', '', $axs);
             }
             if(cisin($axs, 'o') && (!$this->pIrc->isop($target, $nick)
-                    || ($access < $axs && !$this->gM('user')->hasOverride($hand)))) {
+                    || ($access < $axs && !$hasoverride))) {
                 $this->pIrc->notice($nick, "You need access ops or higher in $target to use this command");
                 return;
             } else {
@@ -900,30 +709,15 @@ class CmdReg extends Module {
                 return;
             } else {
                 $override = true;
-                //check if this could be used as custom bot owner command
-                /*
-                if (cisin($axs, 'U') && hasflags($hand, 'U')) {
-                    //the user owns a custom bot make sure its this one
-                    if (!$this->gM('user')->uhasbot($hand, $irc->nick)) {
-                        // they don't own this bot lets make sure they aren't staff
-                        // removed their U flag in the check then if they still have access it means they are staff
-                        $hflags = implode('', explode('U', $this->gM('user')->flags($hand)));
-                        if (!$this->gM('user')->hasflags($hand, $axs, $hflags)) {
-                            $irc->notice($nick, "You do not have access to this BotNetwork staff command.");
-                            return;
-                        }
-                    }
-                }
-                 */
             }
         } else { // chan access
-            if(!($axs <= 0)) {// everyone can use if axs <= 0
+            if(!($axs <= 0)) {// everyone can use if axs <= 0, handles ''
                 if($hand == '') {
                     $this->pIrc->notice($nick, 'You are not authed to BotOps, To auth do /msg ' . $this->pIrc->currentNick() . ' AUTH username password');
                     return;
                 }
-                if($access < $axs && !$this->gM('user')->hasOverride($hand)) {// no access
-                    $this->pIrc->notice($nick, "You need at least $axs access in $target to use $args[0].");
+                if($access < $axs && !$hasoverride) {// no access
+                    $this->pIrc->notice($nick, "You need at least $axs access in $target to use $cmd.");
                     return;
                 } else {
                     if($access < $axs) {
@@ -932,27 +726,18 @@ class CmdReg extends Module {
                 }
             }
         }
-        
+
+        $class = $this->gM($this->pMM->getCname($bind->module));
         //TODO handle return values and log usage
-        if(!method_exists($class, $func)) {
-            $this->pIrc->notice($nick, "Error: failed to access $classname.$bfunc");
-            echo "CmdReg: failed to access $classname.$bfunc\n";
+        if(!method_exists($class, $func->name)) {
+            $this->pIrc->notice($nick, "Error: failed to access $bind->module.$func->name");
+            echo "CmdReg: failed to access $bind->module.$func->name\n";
             return;
         } else {
-            $logins = Array(
-                'date' => microtime_float(),
-                'cmd' => $this->binds[$cmd]['bname'],
-                'override' => (int)$override,
-                'nick' => $nick,
-                'hand' => $hand,
-                'target' => $target,
-                'host' => $host,
-                'msg' => $text,
-                'bot' => $this->pIrc->nick
-            );
+
             try {
                 $stmt = $this->pMysql->prepare("UPDATE Binds set used=used+1 where bname = :bname");
-                $stmt->bindValue(':bname', $args[0]);
+                $stmt->bindValue(':bname', strtolower($cmd));
                 $stmt->execute();
                 $stmt->closeCursor();
             } catch (PDOException $e) {
@@ -961,83 +746,107 @@ class CmdReg extends Module {
                 $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
             }
             $this->gM('ParseUtil')->setArgy(argClean(explode(' ', $text)));
-            if($bargs != '') {
-                $text = $this->gM('ParseUtil')->parse($bargs, 'pucb', $this, Array($class, $func, $nick, $target, $cmd, $args, $logins));
+
+            $pmed = false;
+            if($via == 'pm') {
+                $pmed = true;
+            }
+            if($target[0] != '#') {
+                $target = null;
+                $access = $this->gM('user')->flags($hand);
+            }
+            $calla = Array($class, $func, $nick, $host, $hand, $target, $bind, $override, $pmed, $access, $hasoverride);
+            if($bind->args != '') {
+                $this->gM('ParseUtil')->parse($bind->args, 'pucb', $this, $calla);
                 return;
             }
-            $retval = $class->$func($nick, $target, $text);
-            echo "CmdReg: called " . get_class($class) . "->$func\n";
-        }
-
-        if($retval & $this->rV['ERROR']) {
-            //Not sure what we need to do here for error yet
-            //probably nothing ;)
-            //Possibly get last error from error log
-            //Right now modules return error when they did nothing
-        }
-        if($retval & $this->rV['BADARGS']) {
-            $this->pIrc->notice($nick, "Syntax: $args[0] " . $this->binds[$cmd]['syntax']);
-        }
-        if($retval & $this->rV['OVERRIDE']) {
-            $override = true;
-        }
-        if($retval & $this->rV['OK'] || $retval == NULL) {
-            
-            $logins['override'] = (int)$override;
-            //everything went OK log if needed
-            //get loglvl
-            $loglvl = $this->binds[$cmd]['log'];
-            if($loglvl > 0) {
-                //global comand with first arg as target
-                if($loglvl == 2 || $loglvl == '2') {
-                    if(isset($args[1]) && $args[1] != '') {
-                        $logins['target'] = $args[1];
-                    }
-                }
-                //global command with no target
-                if($loglvl == 3 || $loglvl == '3') {
-                    $logins['target'] = '';
-                }
-                $this->gM('logs')->log('CmdReg', $logins);
-            }
+            $this->pucb($text, $calla);
         }
     }
 
     function pucb($text, $x) {
-        $logins = $x[6];
-        $args = $x[5];
-        $cmd = $x[4];
-        $loglvl = $this->binds[$cmd]['log'];
-        $retval = $x[0]->{$x[1]}($x[2], $x[3], $text);
-        if($retval & $this->rV['ERROR']) {
-        //Not sure what we need to do here for error yet
-        //probably nothing ;)
-        //Possibly get last error from error log
+        list($class, $func, $nick, $host, $hand, $target, $bind, $override, $pmed, $access, $hasoverride) = $x;
+        $cmd = $bind->name;
+        try {
+            $args = new CmdArgs($func->syntax);
+            $args->parse($text);
+        } catch(CmdParseException $e) {
+            $this->pIrc->notice($nick, "Internal Error {$e->getMessage()} for $bind->module.$func->name", 1, 1);
+            return;
+        } catch(CmdSyntaxException $e) {
+            $this->pIrc->notice($nick, "Error: {$e->getMessage()} BindArgs: $bind->args FuncSyntax: $func->name $func->syntax", 1, 1);
+            return;
         }
-        if($retval & $this->rV['BADARGS']) {
-            $this->pIrc->notice($x[2], "Syntax: $x[4] " . $this->binds[$x[5] . $x[4]]['syntax']);
-        }
-        if($retval & $this->rV['OVERRIDE']) {
-        //TODO If loglevel is right, log that override was used
-            $logins['override'] = 1;
-        }
-        if($retval & $this->rV['OK'] || $retval == NULL) {
-        //everything went OK log if needed
-            if($loglvl > 0) {
-                //global comand with first arg as target
-                if($loglvl == 2 || $loglvl == '2') {
-                    if($args[1] != '') {
-                        $logins['target'] = $args[1];
-                    }
+
+        //TODO most of this could be replaced with an object after we update user system and IRC system
+        $r = new CmdRequest($this->pIrc, $nick, $pmed, $target, $args, $host, $hand, $access, $hasoverride);
+
+        try {
+            /**
+             * @var CmdRequest $retval
+             */
+            $retval = $class->{$func->name}($r);
+        } catch (CmdException $e) {
+            if ($e->getMessage()) {
+                $msg = "$bind->name Error: {$e->getMessage()}";
+                if ($e->asReply) {
+                    $this->pIrc->msg($target, $msg, 0, 1);
+                } else {
+                    $this->pIrc->notice($nick, $msg, 0, 1);
                 }
-                //global command with no target
-                if($loglvl == 3 || $loglvl == '3') {
-                    $logins['target'] = '';
-                }
-                $this->gM('logs')->log('CmdReg', $logins);
             }
+            return;
+        } catch (CmdArgsException $e) {
+            //TODO improve output if bindargs null
+            $msg = "$bind->name Error: {$e->getMessage()} BindArgs: $bind->args FuncSyntax: $func->name $func->syntax";
+            if($e->asReply) {
+                $this->pIrc->msg($target, $msg, 0, 1);
+            } else {
+                $this->pIrc->notice($nick, $msg, 0, 1);
+            }
+            return;
+        } catch (PDOException $e) {
+            //TODO replace this when we start using a proper logger
+            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
+            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
+            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+
+            $this->pIrc->notice($nick, "$bind->name MySQL Error: {$e->getMessage()}", 1, 1);
         }
+
+        $logins = Array(
+            'date' => microtime_float(),
+            'cmd' => strtolower($cmd),
+            'override' => (int)$override,
+            'nick' => $nick,
+            'hand' => $hand,
+            'target' => $target,
+            'host' => $host,
+            'msg' => $text,
+            'bot' => $this->pIrc->nick
+        );
+
+        if(is_object($retval) && get_class($retval) == 'CmdRequest' && $retval->override) {
+            $logins['override']  = 1;
+        }
+
+        if($bind->loglvl > 0) {
+            //global comand with first arg as target
+            //TODO with the new system many cmds need to change their loglvl? because first arg may no longer be target
+            //perhaps store the target in the CmdRequest returned
+            //or just make a whole new log system
+            if($bind->loglvl == 2) {
+                if($args[0] != '') {
+                    $logins['target'] = $args[0];
+                }
+            }
+            //global command with no target
+            if($bind->loglvl == 3 ) {
+                $logins['target'] = '';
+            }
+            $this->gM('logs')->log('CmdReg', $logins);
+        }
+
     }
 }
 
-?>

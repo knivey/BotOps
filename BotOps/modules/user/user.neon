@@ -1,0 +1,43 @@
+description: User system module
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+            cmd_access: {syntax: "[nick|*account]", desc: See someone's access, needchan: true}
+            cmd_clvl: {syntax: <nick|*account> <new_access>, desc: Change user's access in channel., needchan: true}
+            cmd_adduser: {syntax: <nick|*account> <new_access>, desc: Give user access in channel., needchan: true}
+            cmd_deluser: {syntax: <nick|*account>, desc: Remove user's access in channel., needchan: true}
+            cmd_users: {desc: See list of users with access in channel., needchan: true}
+            cmd_god: {syntax: "[on|off]", desc: Enable or Disable Security Override.}
+            cmd_oset: {syntax: "<nick|*account> <osetting> [value]...", desc: Set special things on account}
+            cmd_whoami: {desc: Show your bot username.}
+            cmd_auth: {syntax: <username> <password>, desc: Auth to your account., pmonly: true}
+            cmd_register: {syntax: "<username> <password> [email]", desc: Register an account, pmonly: true}
+            cmd_cookie: {syntax: <username> <cookie>, desc: Use a cookie on your account, pmonly: true}
+            cmd_resetpass: {syntax: <username>, desc: Send a cookie to your email to set a new pass., pmonly: true}
+            cmd_pass: {syntax: <new_password>, desc: Change your password, pmonly: true}
+            cmd_email: {syntax: <new_email>, desc: Change your email, pmonly: true}
+            cmd_logout: {desc: Log you out of your account., pmonly: true}
+        binds:
+            access: {func: cmd_access}
+            clvl: {access: 1, func: cmd_clvl, loglvl: 1}
+            adduser: {access: 1, func: cmd_adduser, loglvl: 1}
+            deluser: {access: 1, func: cmd_deluser, loglvl: 1}
+            users: {func: cmd_users}
+            god: {access: O, func: cmd_god, loglvl: 3}
+            oset: {access: S, func: cmd_oset}
+            whoami: {func: cmd_whoami}
+            auth: {func: cmd_auth}
+            register: {func: cmd_register}
+            resetpass: {func: cmd_resetpass, loglvl: 3}
+            pass: {func: cmd_pass}
+            email: {func: cmd_email}
+            cookie: {func: cmd_cookie, loglvl: 3}
+            logout: {func: cmd_logout}
+    ParseUtil:
+        vars:
+            hand: {func: v_hand, desc: users account name}
+    SetReg:
+        account:
+            birthday: {desc: "Your date of birth", opts: [default: ""]}
+            zip: {desc: "Your zipcode", opts: [default: ""]}

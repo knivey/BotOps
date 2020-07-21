@@ -2,6 +2,9 @@
 
 require_once('modules/Module.inc');
 require_once('Tools/Tools.php');
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
+
+//TODO the whole channel module is a mess and needs some rewriting, tracking the irc channel data should probably be in the IRC lib not in here
 
 /**
  * Gives us functions for accessing channels part of database
@@ -10,6 +13,9 @@ require_once('Tools/Tools.php');
 class channel extends Module
 {
 
+    /**
+     * @var array<string,array>
+     */
     public $chans  = Array();
     /*
      * Array of channels bot has joined on irc and irc data
@@ -509,33 +515,21 @@ class channel extends Module
      * Our commands and stuff
      */
 
-    function cmd_names($nick, $chan, $arg2)
-    {
-        //Setup our normal variables..
-        $arg  = explode(' ', $arg2);
-        $chan = strtolower($chan); //Later on we might change this command for use via PM
-        if ($arg[0] == '') {
-            $arg[0] = $chan;
-        }
-        $c = strtolower($arg[0]);
+    function cmd_names(CmdRequest $r) {
+        $c = strtolower($r->chan);
         if (!$this->chanExists($c)) {
             $boc = $this->botsOnChan($c);
             if (!empty($boc)) {
                 //just send to all in case one isn't one and chan has more then one bot
-                $this->gM('xnet')->sendToAll($this, 'namesCB', 'names',
-                                             Array($c), Array($c, $nick));
-                return $this->OK;
+                $this->gM('xnet')->sendToAll($this, 'namesCB', 'names', Array($c), $r);
+                return;
             }
-            $this->pIrc->notice($nick,
-                                'That channel not registered to any bots.');
-            return $this->ERROR;
+            throw new CmdException('That channel not registered to any bots.');
         }
         if ($this->getSet($c, 'channel', 'suspend') != null) {
             $s = $this->getSet($c, 'channel', 'suspend');
-            $this->pIrc->notice($nick,
-                                "$c is suspended by $s[by] on " . strftime('%D %T',
-                                                                           $s['date'] . " for $s[reason]"));
-            return $this->OK;
+            $r->notice("$c is suspended by $s[by] on " . strftime('%D %T', $s['date'] . " for $s[reason]"));
+            return;
         }
         $names = '';
         foreach ($this->chans[$c]['nicks'] as $n => $m) {
@@ -548,21 +542,20 @@ class channel extends Module
             }
         }
         if ($names == '') {
-            $this->pIrc->notice($nick, "No users currently in $c");
+            $r->notice("No users currently in $c");
         } else {
-            $this->pIrc->notice($nick, "Users in \2$c\2: $names");
+            $r->notice("Users in \2$c\2: $names");
         }
-        return $this->OK;
+        return;
     }
 
-    function namesCB($data, $ex)
+    function namesCB($data, CmdRequest $r)
     {
-        list($c, $nick) = $ex;
-        $out = "No bots replied for $c names";
+        $out = "No bots replied for $r->chan names";
         foreach ($data as $d) {
             if (!array_key_exists('error', $d)) {
                 if (array_key_exists('ok', $d['resp'])) {
-                    $this->pIrc->notice($nick, $d['resp']['ok']);
+                    $r->notice($d['resp']['ok']);
                     return;
                 } else {
                     if (array_key_exists('suspended', $d['resp'])) {
@@ -571,7 +564,7 @@ class channel extends Module
                 }
             }
         }
-        $this->pIrc->notice($nick, $out);
+        $r->notice($out);
     }
 
     function rpc_names($p)
@@ -603,29 +596,16 @@ class channel extends Module
     }
 
     //TODO idlers group clones in () /maybe later highlight people matching certain hosts (bots etc)
-    function cmd_peek($nick, $target, $arg2)
+    function cmd_peek(CmdRequest $r)
     {
-        //Setup our normal variables..
-        $arg    = explode(' ', $arg2);
-        $host   = $this->pIrc->n2h($nick);
-        $hand   = $this->gM('user')->byHost($host);
-        $chan   = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->gM('user')->access($hand, $chan);
-        if (empty($arg[0])) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
-        }
-        $c = strtolower($arg[0]);
+        $c = strtolower($r->chan);
         if (!$this->chanExists($c)) {
-            $this->pIrc->notice($nick,
-                                'That channel not registered to this bot.');
-            return $this->gM('CmdReg')->rV['ERROR'];
+            throw new CmdException('That channel not registered to this bot.');
         }
         if ($this->getSet($c, 'channel', 'suspend') != null) {
             $s = $this->getSet($c, 'channel', 'suspend');
-            $this->pIrc->notice($nick,
-                                "$c is suspended by $s[by] on " . strftime('%D %T',
-                                                                           $s['date'] . " for $s[reason]"));
-            return $this->gM('CmdReg')->rV['OK'];
+            $r->notice("$c is suspended by $s[by] on " . strftime('%D %T', $s['date'] . " for $s[reason]"));
+            return;
         }
         //not sure what this was for i guess return info to see if its right
         $nicks = '';
@@ -642,168 +622,86 @@ class channel extends Module
             }
         }
         $modes = "$modesA $modesB";
-        $this->pIrc->notice($nick,
-                            "$c (" . strftime('%D %T',
-                                              $this->chans[$c]['createTime']) . ") has "
-                . count($this->chans[$c]['nicks']) . " idlers");
-        $this->pIrc->notice($nick, "Idlers: $nicks");
-        $this->pIrc->notice($nick,
-                            "Modes: $modes Topic: " . $this->chans[$c]['topic']
-                . " Set " . strftime('%D %T', $this->chans[$c]['topicTime']) . " by " . $this->chans[$c]['topicBy']);
-        $this->pIrc->notice($nick,
-                            "Channel Trigger: " . $this->getTrig($c) .
-                " Registered by: " . $this->getSet($c, 'channel', 'registar')
-                . " On: " . strftime('%D %T',
-                                     $this->getSet($c, 'channel', 'regged')) . "");
-        return $this->gM('CmdReg')->rV['OK'];
+        $r->notice("$c (" . strftime('%D %T', $this->chans[$c]['createTime']) . ") has " . count($this->chans[$c]['nicks']) . " idlers");
+        $r->notice("Idlers: $nicks");
+        $r->notice("Modes: $modes Topic: {$this->chans[$c]['topic']} Set " . strftime('%D %T', $this->chans[$c]['topicTime']) . " by {$this->chans[$c]['topicBy']}");
+        $r->notice("Channel Trigger: " . $this->getTrig($c) . " Registered by: " . $this->getSet($c, 'channel', 'registar')
+                . " On: " . strftime('%D %T', $this->getSet($c, 'channel', 'regged')) . "");
+        return;
     }
 
-    function cmd_addchan($nick, $target, $arg2)
-    {
-        //Setup our normal variables..
-        $arg    = explode(' ', $arg2);
-        $host   = $this->pIrc->n2h($nick);
-        $hand   = $this->gM('user')->byHost($host);
-        $chan   = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->gM('user')->access($hand, $chan);
-        if (empty($arg[0]) || empty($arg[1])) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
-        }
+    function cmd_addchan(CmdRequest $r) {
         //These might already be on DNR but I like to try and be safe
-        if ($arg[0]{0} != '#' || strpos(',', $arg[0]) !== FALSE) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
+        if (strpos(',', $r->chan) !== FALSE) {
+            throw new CmdException("Do not use comma in channel names.");
         }
-        if ($this->chanExists($arg[0])) {
-            $this->pIrc->notice($nick,
-                                'That channel is already registered to this bot.');
-            return $this->gM('CmdReg')->rV['ERROR'];
+        if ($this->chanExists($r->chan)) {
+            throw new CmdException('That channel is already registered to this bot.');
         }
-        $h      = "cmd_addchan";
-        $arg[1] = $this->gM('user')->na_arg($arg[1], $nick, $h);
-        if ($arg[1] == null) {
-            return $this->gM('CmdReg')->rV['ERROR'];
-        }
-        $addchan = $this->addChan($arg[0], $arg[1], $hand);
-        if ($addchan != null) {
-            if ($addchan == 1) {
-                $this->pIrc->notice($nick, 'That channel is already added.');
-                return $this->gM('CmdReg')->rV['ERROR'];
-            }
-            if ($addchan == 2) {
-                $this->pIrc->notice($nick, 'That user doesn\'t exist.');
-                return $this->gM('CmdReg')->rV['ERROR'];
-            }
-            $this->pIrc->notice($nick, $addchan);
-            return $this->gM('CmdReg')->rV['ERROR'];
-        }
-        $this->pIrc->notice($nick, 'Channel added.');
-        return $this->gM('CmdReg')->rV['OK'];
-    }
-
-    function cmd_delchan($nick, $target, $arg2)
-    {
-        //Setup our normal variables..
-        $arg    = explode(' ', $arg2);
-        $host   = $this->pIrc->n2h($nick);
-        $hand   = $this->gM('user')->byHost($host);
-        $chan   = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->gM('user')->access($hand, $chan);
-        if (empty($arg[0]) || empty($arg[1])) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
-        }
-        if (!$this->chanExists($arg[0])) {
-            $this->pIrc->notice($nick,
-                                'That channel isn\'t registered to this bot.');
-            return $this->gM('CmdReg')->rV['ERROR'];
-        }
-        $delchan = $this->delChan($arg[0], $hand, arg_range($arg, 1, -1));
-        if ($delchan != null) {
-            $this->pIrc->notice($nick,
-                                'That channel has nodelete set: ' . $delchan);
-            return $this->gM('CmdReg')->rV['ERROR'];
-        }
-        $this->pIrc->notice($nick, 'Channel removed.');
-        return $this->gM('CmdReg')->rV['OK'];
-    }
-
-    function cmd_suspend($nick, $target, $arg2)
-    {
-        //Setup our normal variables..
-        $arg    = explode(' ', $arg2);
-        $host   = $this->pIrc->n2h($nick);
-        $hand   = $this->gM('user')->byHost($host);
-        $chan   = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->gM('user')->access($hand, $chan);
-        if (empty($arg[0]) || empty($arg[1])) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
-        }
-        if (!$this->chanExists($arg[0])) {
-            $this->pIrc->notice($nick,
-                                'That channel isn\'t registered to this bot.');
-            return $this->gM('CmdReg')->rV['ERROR'];
-        }
-        $suspend = $this->suspend($arg[0], arg_range($arg, 1, -1), $hand);
-        if ($suspend != null) {
-            if ($suspend == 2) {
-                $this->pIrc->notice($nick,
-                                    'That channel has already been suspended.');
-                return $this->gM('CmdReg')->rV['ERROR'];
-            }
-            $this->pIrc->notice($nick,
-                                'That channel has nodelete set: ' . $suspend);
-            return $this->gM('CmdReg')->rV['ERROR'];
-        }
-        $this->pIrc->notice($nick, 'Channel suspended.');
-        return $this->gM('CmdReg')->rV['OK'];
-    }
-
-    function cmd_unsuspend($nick, $target, $arg2)
-    {
-        //Setup our normal variables..
-        $arg    = explode(' ', $arg2);
-        $host   = $this->pIrc->n2h($nick);
-        $hand   = $this->gM('user')->byHost($host);
-        $chan   = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->gM('user')->access($hand, $chan);
-        if (empty($arg[0])) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
-        }
-        if (!$this->chanExists($arg[0])) {
-            $this->pIrc->notice($nick,
-                                'That channel isn\'t registered to this bot.');
-            return $this->gM('CmdReg')->rV['ERROR'];
-        }
-        $unsuspend = $this->unsuspend($arg[0], $hand);
-        if ($unsuspend != null) {
-            if ($unsuspend == 2) {
-                $this->pIrc->notice($nick,
-                                    'That channel has not been suspended.');
-                return $this->gM('CmdReg')->rV['ERROR'];
-            }
-            return $this->gM('CmdReg')->rV['ERROR'];
-        }
-        $this->pIrc->notice($nick, 'Channel unsuspended.');
-        return $this->gM('CmdReg')->rV['OK'];
-    }
-
-    function cmd_channels($nick, $target, $arg2)
-    {
-        //Setup our normal variables..
-        $arg  = explode(' ', $arg2);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $ch   = strtolower($target); //Later on we might change this command for use via PM
 
         try {
-            $stmt = $this->pMysql->prepare("SELECT `chans` FROM `bots` WHERE `name` = :nick");
-            $stmt->execute(Array(':nick' => $this->pIrc->nick));
-            $row  = $stmt->fetch();
-            $stmt->closeCursor();
-        } catch (PDOException $e) {
-            $PDO_OUT = $e->getMessage() . ' ' . $e->getFile() . ':' . $e->getLine();
-            echo "PDO Exception: $PDO_OUT\n" . $e->getTraceAsString();
-            $this->pIrc->msg('#botstaff', "PDO Exception: $PDO_OUT");
+            $arg[0] = $this->gM('user')->getByNickOrAccount($r->args['owner']);
+        } catch (Exception $e) {
+            throw new CmdException($e->getMessage());
         }
+        $addchan = $this->addChan($r->chan, $arg[0], $r->account);
+        if ($addchan != null) {
+            if ($addchan == 1) {
+                throw new CmdException('That channel is already added.');
+            }
+            if ($addchan == 2) {
+                throw new CmdException('That user doesn\'t exist.');
+            }
+            throw new CmdException($addchan);
+        }
+        $r->notice('Channel added.');
+    }
+
+    function cmd_delchan(CmdRequest $r) {
+        if (!$this->chanExists($r->chan)) {
+            throw new CmdException('That channel isn\'t registered to this bot.');
+        }
+        $delchan = $this->delChan($r->chan, $r->account, $r->args['reason']);
+        if ($delchan != null) {
+            throw new CmdException('That channel has nodelete set: ' . $delchan);
+        }
+        $r->notice('Channel removed.');
+    }
+
+    function cmd_suspend(CmdRequest $r) {
+        if (!$this->chanExists($r->chan)) {
+            throw new CmdException('That channel isn\'t registered to this bot.');
+        }
+        $suspend = $this->suspend($r->chan, $r->args['reason'], $r->account);
+        if ($suspend != null) {
+            if ($suspend == 2) {
+                throw new CmdException('That channel has already been suspended.');
+            }
+            throw new CmdException('That channel has nodelete set: ' . $suspend);
+        }
+        $r->notice('Channel suspended.');
+    }
+
+    function cmd_unsuspend(CmdRequest $r) {
+        if (!$this->chanExists($r->chan)) {
+            throw new CmdException('That channel isn\'t registered to this bot.');
+        }
+        $unsuspend = $this->unsuspend($r->chan, $r->account);
+        if ($unsuspend != null) {
+            if ($unsuspend == 2) {
+                throw new CmdException('That channel has not been suspended.');
+            }
+            throw new CmdException('Unknown error');
+        }
+        $r->notice('Channel unsuspended.');
+    }
+
+    function cmd_channels(CmdRequest $r) {
+        $stmt = $this->pMysql->prepare("SELECT `chans` FROM `bots` WHERE `name` = :nick");
+        $stmt->execute(Array(':nick' => $this->pIrc->nick));
+        $row  = $stmt->fetch();
+        $stmt->closeCursor();
+
         $chans = explode(' ', $row['chans']);
         $out1  = '';
         $out2  = '';
@@ -876,15 +774,11 @@ class channel extends Module
             }
         }
         $total = $snum + $num;
-        if (isset($arg[0]) && $arg[0] == 'total') {
-            $this->pIrc->notice($nick, "\2Total:\2 $total");
-            return;
-        }
-        $this->pIrc->notice($nick,
-                            "\2Total\2: $total \2Key\2: " . "\3" . "9,1Oped " . "\3" . "8,1Voiced " . "\3" . "4,1Not Oped or Voiced " . "\3" . "0,1" . chr(31) . "Lacks Idlers" . chr(31) . " (no color change) " . "\3" . "13,1Suspended");
-        $this->pIrc->notice($nick, "\2Channels(\2$num\2)\2: $out1");
-        $this->pIrc->notice($nick, "\2Suspended(\2$snum\2)\2: $out2");
-        $this->pIrc->notice($nick, "\2Failed to join(\2$fnum\2):\2 $out3");
+
+        $r->notice("\2Total\2: $total \2Key\2: " . "\3" . "9,1Oped " . "\3" . "8,1Voiced " . "\3" . "4,1Not Oped or Voiced " . "\3" . "0,1" . chr(31) . "Lacks Idlers" . chr(31) . " (no color change) " . "\3" . "13,1Suspended");
+        $r->notice("\2Channels(\2$num\2)\2: $out1");
+        $r->notice("\2Suspended(\2$snum\2)\2: $out2");
+        $r->notice("\2Failed to join(\2$fnum\2):\2 $out3");
     }
 
     /*
@@ -899,9 +793,9 @@ class channel extends Module
 
     /**
      * Load channel data from mysql
-     * @param <string> $chan Channel to load
+     * @param string $chan Channel to load
      */
-    function loadChan($chan)
+    function loadChan(string $chan)
     {
         $chan = strtolower($chan);
         try {
@@ -922,9 +816,9 @@ class channel extends Module
 
     /**
      * Save a channels info to mysql
-     * @param <type> $chan Channel to save
+     * @param string $chan Channel to save
      */
-    function saveChan($chan)
+    function saveChan(string $chan)
     {
         $chan = strtolower($chan);
         if (!array_key_exists($chan, $this->dChans)) {
@@ -949,12 +843,12 @@ class channel extends Module
 
     /**
      * Change a setting for a channel or add new setting
-     * @param <string> $chan Channel to change setting
-     * @param <string> $mod Module setting is under
-     * @param <string> $name Name of setting
-     * @param <any> $val Setting info
+     * @param string $chan Channel to change setting
+     * @param string $mod Module setting is under
+     * @param string $name Name of setting
+     * @param mixed $val Setting info
      */
-    function chgSet($chan, $mod, $name, $val)
+    function chgSet(string $chan, string $mod, string $name, $val)
     {
         $chan = strtolower($chan);
         if (!$this->chanExists($chan)) {
@@ -966,11 +860,11 @@ class channel extends Module
 
     /**
      * Return a setting for $chan
-     * @param <type> $chan Channel
-     * @param <type> $mod Module setting is under
-     * @param <type> $name Name of setting
+     * @param string $chan Channel
+     * @param string $mod Module setting is under
+     * @param string $name Name of setting
      */
-    function getSet($chan, $mod, $name)
+    function getSet(string $chan, string $mod, string $name)
     {
         $chan = strtolower($chan);
         if (!$this->chanExists($chan)) {
@@ -1387,7 +1281,7 @@ class channel extends Module
 
     /**
      * Return If our bot is on said channel
-     * @param <string> $chan Channel to check
+     * @param string $chan Channel to check
      */
     function onChan($chan)
     {
@@ -1439,9 +1333,9 @@ class channel extends Module
 
     /**
      * Return an array of bots assigned to a channel
-     * @param <string> $channel
+     * @param string $channel
      */
-    function botsOnChan($channel)
+    function botsOnChan(string $channel)
     {
         $channel = strtolower($channel);
         try {
@@ -1470,7 +1364,7 @@ class channel extends Module
 
     /**
      * Return channels for specified bot as an Array ['channel'] => active?
-     * @param <string> $bot Name of bot
+     * @param string $bot Name of bot
      */
     function botChannels($bot)
     {

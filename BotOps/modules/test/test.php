@@ -1,28 +1,9 @@
 <?php
-
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 require_once('modules/Module.inc');
 
 class test extends Module {
-
-    function cmd_xmlrpc($nick, $chan, $msg) {
-        $msg = explode(' ', $msg);
-        $host = array_shift($msg);
-        $method = array_shift($msg);
-        $msg = implode(' ', $msg);
-        eval('$msg = ' . $msg . ';');
-        $lol = new Http($this->pSockets, $this, 'xmlresp');
-        $lol->xmlrpcQuery($host, Array('chan' => $chan), $method, $msg);
-    }
-    
-    public function xmlresp($data, $vars, $xmlrpc) {
-        if(is_array($data)) {
-            $this->pIrc->msg($vars['chan'], "\2XMLRPC Response:\2 Error ($data[0]) $data[1]");
-            return;
-        }
-        $this->pIrc->msg($vars['chan'], "\2XMLRPC Response:\2 " . var_export($xmlrpc, true), false);
-    }
-    
-    function cmd_sysinfo($nick, $chan, $msg) {
+    function cmd_sysinfo(CmdRequest $r) {
         /*
          * Hostname: Node01 - OS: Linux 2.6.18-308.4.1.el5/x86_64 - 
          * Distro: CentOS 5.8 - CPU: 24 x Intel Xeon (2926.097 MHz) - 
@@ -76,7 +57,7 @@ class test extends Module {
         preg_match($pat, $df[1], $matches);
         $df = convert($matches['used'] * 1024) .'/'. convert($matches['tot'] * 1024) . " ($matches[per])" ;
         
-        $this->pIrc->msg($chan, "\2Hostname:\2 $hostname \2OS:\2 $os \2Distro:\2 $distro" .
+        $r->reply("\2Hostname:\2 $hostname \2OS:\2 $os \2Distro:\2 $distro" .
                 " \2CPU:\2 $cpu_model (".$cpu_mhz."MHz) \2Processes:\2 $proc_num \2Uptime:\2 $uptime" .
                 " \2Users:\2 $users \2Load Average:\2 $load_avg" .
                 " \2Memory Usage:\2 $mem_used/$mem_total ($mem_per%) \2Disk Usage:\2 $df");
@@ -95,7 +76,7 @@ class test extends Module {
         $this->pIrc->msg($target, $msg);
     }
     
-    function cmd_version($n, $c, $t)
+    function cmd_version(CmdRequest $r)
     {
         $ver_rev  = `git log --format=%h -1`;
         $ver_date = `git log --format=%cd -1`;
@@ -104,45 +85,24 @@ class test extends Module {
         $uname .= ' ' . php_uname('r');
         $uname .= ' ' . php_uname('m');
         $version  = "BotOps version 2.1, Commit#: $ver_rev Last Modified: $ver_date Running on $uname PHP Version $phpv";
-        $this->pIrc->notice($n, $version);
+        $r->notice($version);
     }
 
-    function cmd_eval($nick, $target, $text) {
-    //Setup our normal variables..
-        $arg = explode(' ', $text);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $chan = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->gM('user')->access($hand, $chan);
-        if(empty($arg[0])) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
-        }
-        eval($text . ';');
-        $this->pIrc->msg($target, "Done...");
+    function cmd_eval(CmdRequest $r) {
+        eval($r->args[0] . ';');
+        $r->reply("Done...");
     }
 
-    function cmd_ced($nick, $target, $text) {
-    //Setup our normal variables..
-        $arg = explode(' ', $text);
-        $host = $this->pIrc->n2h($nick);
-        $hand = $this->gM('user')->byHost($host);
-        $chan = strtolower($target); //Later on we might change this command for use via PM
-        $access = $this->gM('user')->access($hand, $chan);
-        if(empty($arg[0])) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
-        }
-        eval('$this->pIrc->msg($target, var_export(' . $text . ', true), false, true);' . ';');
-        $this->pIrc->msg($target, "Done...");
+    function cmd_ced(CmdRequest $r) {
+        eval('$this->pIrc->msg($r->chan, var_export(' . $r->args[0] . ', true), false, true);' . ';');
+        $r->reply("Done...");
     }
 
-    function cmd_shell($nick, $target, $text) {
-        if(empty($text)) {
-            return $this->gM('CmdReg')->rV['BADARGS'];
-        }
-        $result = trim(`$text`);
-        $this->pIrc->msg($target, $result, false);
-        $this->pIrc->msg($target, "Done...");
+    function cmd_shell(CmdRequest $r) {
+        $result = trim(`{$r->args[0]}`);
+        $r->reply($result, 0, 1);
+        $r->reply("Done...");
     }
 }
 
-?>
+

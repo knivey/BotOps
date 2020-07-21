@@ -1,9 +1,6 @@
 <?php
 
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
+require_once __DIR__ . '/../CmdReg/CmdRequest.php';
 
 require_once('Tools/simple_html_dom.php');
 require_once('modules/Module.inc');
@@ -12,27 +9,23 @@ require_once('Http.inc');
 class urbandict extends Module
 {
 
-    function cmd_ud($nick, $chan, $msg)
+    function cmd_ud(CmdRequest $r)
     {
-        if ($msg == '') {
-            return $this->BADARGS;
-        }
-
-        $doc = file_get_html('http://www.urbandictionary.com/define.php?term=' . urlencode(htmlentities($msg)));
+        $doc = file_get_html('http://www.urbandictionary.com/define.php?term=' . urlencode(htmlentities($r->args['term'])));
 
         if ($doc === false) {
-            goto fuckoff;
+            goto fail;
         }
 
         if (strpos($doc->plaintext, "Sorry, we couldn't find: ") !== FALSE &&
             strpos($doc->plaintext, "There are no definitions for this word.") !== FALSE) {
-            goto fuckoff;
+            goto fail;
         }
 
         $word = @$doc->find('a.word')[0]->plaintext;
 
         if (!$word) {
-            goto fuckoff;
+            goto fail;
         }
 
         $by       = $doc->find('div.contributor')[0]->plaintext;
@@ -58,13 +51,13 @@ class urbandict extends Module
         }
         $example = implode(' | ', $example);
 
-        $this->pIrc->msg($chan, "\2UrbanDict:\2 $word $by", 1, 1);
-        $this->pIrc->msg($chan, "\2Meaning:\2 $meaning", 1, 1);
-        $this->pIrc->msg($chan, "\2Example:\2 $example", 1, 1);
+        $r->reply("\2UrbanDict:\2 $word $by", 0, 1);
+        $r->reply("\2Meaning:\2 $meaning", 0, 1);
+        $r->reply("\2Example:\2 $example", 0, 1);
         return;
 
-        fuckoff:
-        $this->pIrc->msg($chan,"\2UrbanDictionary:\2 Site dead or nothing found :(");
+        fail:
+        $r->reply("\2UrbanDictionary:\2 Site dead or nothing found :(");
     }
 
 }
