@@ -12,3 +12,4 @@ vendor
 BotOps/chanlogs/*
 BotOps/logs/*
 BotOps/pisg.cfg
+composer.phar
