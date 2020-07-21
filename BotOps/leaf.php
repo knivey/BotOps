@@ -189,18 +189,21 @@ if (empty($arf)) {
 }
 
 var_dump($startbots);
-
-foreach ($startbots as $b) {
-    $bots[$b] = new Bot($b, $config, $sockets, $Mysql);
-    echo "Starting Bot $b\n";
-
-    if (!$bots[$b]) {
-        echo "FAILED TO CREATE BOT\n";
-        die();
+$MLoader = new ModuleLoader();
+function startbots(array $startbots) {
+    global $bots, $config, $sockets, $Mysql;
+    foreach ($startbots as $b) {
+        $bots[$b] = new Bot($b, $config, $sockets, $Mysql);
+        echo "Starting Bot $b\n";
+        if (!$bots[$b]) {
+            echo "FAILED TO CREATE BOT\n";
+            die();
+        }
+        $bots[$b]->init();
+        $bots[$b]->Irc->connect();
     }
 }
-
-$MLoader = new ModuleLoader();
+startbots($startbots);
 
 class Bot {
 
@@ -319,11 +322,6 @@ class Bot {
         $this->Irc->logic();
     }
 
-}
-
-foreach ($bots as &$bot) {
-    $bot->init();
-    $bot->Irc->connect();
 }
 
 while (count($bots) > 0) {
