@@ -152,12 +152,12 @@ class trivia extends Module {
      * @param Array 		$rpl 	one of the $this->RPL*
      * @param Array|string 	$args	string if only one otherwise use array of args
      */
-    function msgRpl(CmdRequest $r, $rpl, $args) {
+    function msgRpl($chan, $rpl, $args) {
     	if(!is_array($args)) {
     		$args = Array($args);
     	}
     	$f = $rpl[array_rand($rpl)];
-        $r->reply(vsprintf($f, $args));
+        $this->pIrc->msg($chan, vsprintf($f, $args));
     }
     
     /**
@@ -195,7 +195,7 @@ class trivia extends Module {
 
     function cmd_trivia(CmdRequest $r) {
         if(array_key_exists($r->chan, $this->running)) {
-            $this->msgRpl($r, $this->RPL_RUNNING, $r->nick);
+            $this->msgRpl($r->chan, $this->RPL_RUNNING, $r->nick);
             return;
         }
         if(isset($r->args[0])) {
@@ -207,7 +207,7 @@ class trivia extends Module {
             'count' => 0,
             'scores' => Array()
         );
-        $this->msgRpl($r, $this->RPL_STARTED, $r->nick);
+        $this->msgRpl($r->chan, $this->RPL_STARTED, $r->nick);
         $this->showQuestion($r->chan);
     }
 
@@ -272,11 +272,11 @@ class trivia extends Module {
     function cmd_strivia(CmdRequest $r) {
         $cur = $this->getCurrent($r->chan);
         if(!$cur) {
-        	$this->msgRpl($r, $this->RPL_NOTRUNNING, $r->nick);
+        	$this->msgRpl($r->chan, $this->RPL_NOTRUNNING, $r->nick);
         	return;
         }
-        $this->msgRpl($r, $this->RPL_NOANSWER, $cur->answers->toString());
-        $this->msgRpl($r, $this->RPL_STOPPED, $r->nick);
+        $this->msgRpl($r->chan, $this->RPL_NOANSWER, $cur->answers->toString());
+        $this->msgRpl($r->chan, $this->RPL_STOPPED, $r->nick);
         $this->showScores($r->chan);
         unset($this->running[$r->chan]);
     }
@@ -284,11 +284,11 @@ class trivia extends Module {
     function cmd_skip(CmdRequest $r) {
     	$cur = $this->getCurrent($r->chan);
     	if(!$cur) {
-    		$this->msgRpl($r, $this->RPL_NOTRUNNING, $r->nick);
+    		$this->msgRpl($r->chan, $this->RPL_NOTRUNNING, $r->nick);
     		return;
     	}
         $a = $cur->answers->toString();
-        $this->msgRpl($r, $this->RPL_SKIPPED, Array($r->nick, $a));
+        $this->msgRpl($r->chan, $this->RPL_SKIPPED, Array($r->nick, $a));
         $this->nextQuestion($r->chan);
     }
 
