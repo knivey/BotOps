@@ -393,7 +393,7 @@ class admin extends Module {
         }
     }
 
-    function cmd_startbot($nick, $chan, $msg) {
+    function cmd_startbot(CmdRequest $r) {
         $this->gM('xnet')->sendToAll($this, 'startbotCB', 'botinfo', null, $r);
     }
     
