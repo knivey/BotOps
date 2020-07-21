@@ -111,7 +111,14 @@ class trivia extends Module {
         return $out;
     }
 
-    
+    function rglob($pattern, $flags = 0) {
+        $files = glob($pattern, $flags);
+        foreach (glob(dirname($pattern).'/*', GLOB_ONLYDIR|GLOB_NOSORT) as $dir) {
+            $files = array_merge($files, $this->rglob($dir.'/'.basename($pattern), $flags));
+        }
+        return $files;
+    }
+
     /**
      * Get a random question from a random file in the qdir
      * @return multitype:multitype: mixed
@@ -120,8 +127,10 @@ class trivia extends Module {
     	$tries = 0;
     	do {
     		//for now we are doing the easy thing and just getting random
-        	$files = $this->searchDir($this->qdir, '*.txt');
-        	$fileName = $this->qdir . $files[array_rand($files)];
+		$files = $this->rglob($this->qdir .'/*.txt');
+		var_dump($files);
+                $fileName = $files[array_rand($files)];
+                echo "Trivia file selected: $fileName\n";
         	$lines = file($fileName);
         	$lineNumber = array_rand($lines);
         	$line = trim($lines[$lineNumber]);
