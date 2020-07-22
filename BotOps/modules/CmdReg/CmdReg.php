@@ -151,7 +151,7 @@ class CmdReg extends Module {
         $stmtd->closeCursor();
         //do we really want to reset used counter?
         $stmti = $this->pMysql->prepare("INSERT INTO `Binds` (bname,classname,used,access,args,log,func)" .
-            " VALUES(:bind,:class_name,0,:access,:args,:log,:func)");
+            " VALUES(:bind,:class_name,0,:access,:args,:loglvl,:func)");
         $stmti->bindValue(':bind', $bind);
         $stmti->bindValue(':class_name', $bi->module);
         $stmti->bindValue(':access', $bi->access ?? 0);
