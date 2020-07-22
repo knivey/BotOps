@@ -76,6 +76,7 @@ class CmdException extends Exception {
     public function asReply()
     {
         $this->asReply = true;
+        return $this;
     }
 }
 
