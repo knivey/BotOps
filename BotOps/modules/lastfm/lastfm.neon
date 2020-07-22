@@ -1,0 +1,7 @@
+description: "query last.fm"
+Modules:
+    CmdReg:
+        funcs:
+            cmd_lastfm: {syntax: <user>, desc: get most recent track from user's last.fm}
+        binds:
+            lastfm: {func: cmd_lastfm}
