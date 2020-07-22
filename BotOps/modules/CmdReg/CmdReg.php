@@ -154,9 +154,9 @@ class CmdReg extends Module {
             " VALUES(:bind,:class_name,0,:access,:args,:log,:func)");
         $stmti->bindValue(':bind', $bind);
         $stmti->bindValue(':class_name', $bi->module);
-        $stmti->bindValue(':access', $bi->access);
-        $stmti->bindValue(':args', $bi->args);
-        $stmti->bindValue(':loglvl', $bi->loglvl);
+        $stmti->bindValue(':access', $bi->access ?? 0);
+        $stmti->bindValue(':args', $bi->args ?? '');
+        $stmti->bindValue(':loglvl', $bi->loglvl ?? 0);
         $stmti->bindValue(':func', $bi->func);
         $stmti->execute();
         $stmti->closeCursor();
