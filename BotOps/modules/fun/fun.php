@@ -18,6 +18,7 @@ class fun extends Module {
             curl_close($ch);
             throw new Exception($err);
         }
+        return $res;
     }
 
     public function cmd_ddg(CmdRequest $r)
