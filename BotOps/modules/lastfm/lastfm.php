@@ -35,11 +35,11 @@ class lastfm extends Module {
         $title = $track['name'] ?? 'No Title';
         $artist = $track['artist']['#text'] ?? 'Unknown Artist';
         $album = $track['album']['#text'] ?? 'Unknown Album';
-        $time = '';
+        $time = 'scrobbling now';
         if(isset($track['date']['uts'])) {
             $ago = time() - $track['date']['uts'];
-            $time = ' ' .Duration_toString($ago) . " ago";
+            $time = 'last scrobbled ' .Duration_toString($ago) . " ago";
         }
-        $r->reply("\2last.fm:\2 $user last scrobbled$time: $title - $album - $artist");
+        $r->reply("\2last.fm:\2 $user $time: $title - $album - $artist");
     }
 }
