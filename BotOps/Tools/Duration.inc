@@ -120,11 +120,11 @@ function Duration_int2array($seconds, $periods = null) {
  * @param        mixed $duration An array of named segments
  * @return       string
  */
-function Duration_array2string($duration) {
+function Duration_array2string($duration, $nopad = false) {
     if (!is_array($duration)) {
         return false;
     }
-
+    $array = [];
     foreach ($duration as $key => $value) {
         //$segment_name = substr($key, 0, -1);
         //$segment = $value . ' ' . $segment_name; 
@@ -137,7 +137,10 @@ function Duration_array2string($duration) {
         $array[] = $segment;
     }
 
-    $str = implode(', ', $array);
-    return $str;
+    if($nopad) {
+        return implode('', $array);
+    }
+    return implode(', ', $array);
+
 }
 
