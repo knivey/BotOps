@@ -143,7 +143,7 @@ class CmdReg extends Module {
          */
         $bi = $this->binds[$bind];
         //TODO can we send an object here?
-        $this->gM('xnet')->sendToAll(null, null, 'modcmd', Array($bind, $this->binds[$bind]));
+        $this->gM('xnet')->sendToAll(null, null, 'modcmd', Array($bind, serialize($this->binds[$bind])));
 
         $stmtd = $this->pMysql->prepare("DELETE FROM `Binds` WHERE `bname` = :bind");
         $stmtd->bindValue(':bind', $bind);
@@ -188,12 +188,14 @@ class CmdReg extends Module {
 
     function rpc_bind($p)
     {
-        $this->binds[$p[0]] = $p[1];
+        $this->binds[$p[0]] = unserialize($p[1]);
+        var_dump($this->binds[$p[0]]);
     }
 
     function rpc_modcmd($p)
     {
-        $this->binds[$p[0]] = $p[1];
+        $this->binds[$p[0]] = unserialize($p[1]);
+        var_dump($this->binds[$p[0]]);
     }
 
     function cmd_bind(CmdRequest $r)
@@ -201,7 +203,7 @@ class CmdReg extends Module {
         $bind = $r->args['bind'];
         $mod = $r->args['module'];
         $func = $r->args['function'];
-        $args = $r->args['function'];
+        $args = $r->args['args'];
         $access = '0';
         $loglvl = 0;
 
@@ -216,7 +218,7 @@ class CmdReg extends Module {
 
         $this->setBind($mod, $bind, $func, $access, $args, $loglvl);
 
-        $this->gM('xnet')->sendToAll(null, null, 'bind', Array($bind, $this->binds[$bind]));
+        $this->gM('xnet')->sendToAll(null, null, 'bind', Array($bind, serialize($this->binds[$bind])));
 
         $stmti = $this->pMysql->prepare("INSERT INTO `Binds` (bname,classname,used,access,args,log,func)" .
             " VALUES(:bind,:class_name,0,:access,:args,:log,:func)");
@@ -359,10 +361,10 @@ class CmdReg extends Module {
         return false;
     }
 
-    function setBind(string $module, string $name, string $func, string $access, string $args, int $loglvl) {
+    function setBind(string $module, string $name, string $func, string $access, ?string $args, int $loglvl) {
         $bind = new CmdBind($module, $name, $func);
         $bind->access = $access;
-        $bind->args  = $args;
+        $bind->args  = $args ?? "";
         $bind->loglvl = $loglvl;
         $this->binds[$name] = $bind;
     }
