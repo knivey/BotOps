@@ -39,7 +39,7 @@ class lastfm extends Module {
         if(isset($track['date']['uts'])) {
             $ago = time() - $track['date']['uts'];
             $dur = Duration_int2array($ago);
-            $ago = Duration_array2string(array_slice($dur, 0, 4), 1);
+            $ago = Duration_array2string(array_slice($dur, 0, 3), 1);
             $time = "last scrobbled $ago ago";
         }
         $r->reply("\2last.fm:\2 $user $time: $title - $album - $artist");
