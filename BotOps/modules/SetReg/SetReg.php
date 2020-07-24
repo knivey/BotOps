@@ -56,7 +56,7 @@ require_once('Tools/Tools.php');
     //TODO in the future look into adding hooks to let modules know
     //      if a setting with hook defined has been changed
     function cSet($module, $chan, $setting, $args) {
-        $sets = $this->gM('user')->getSet($chan, 'SetReg', 'sets');
+        $sets = $this->gM('channel')->getSet($chan, 'SetReg', 'sets');
         $sets[$module][$setting] = $args;
         $this->gM('channel')->chgSet($chan, 'SetReg', 'sets', $sets);
     }
