@@ -90,9 +90,15 @@ class quotes extends Module
     function cmd_quote(CmdRequest $r) {
         $origin = $this->gM('SetReg')->getCSet('quotes', $r->chan, 'origin');
         $param  = Array();
-        if ($origin == 'chan') {
-            $qapp  = ' AND chan = :chan';
-            $param = Array(':chan' => $r->chan);
+        if ($origin != 'all') {
+            $chans = explode(' ', $origin);
+            $chans = array_filter($chans);
+            $ps = [];
+            foreach ($chans as $k => $c) {
+                $ps[] = "chan = :chan$k";
+                $param[":chan$k"] = $c;
+            }
+            $qapp = ' AND (' . implode(' OR ', $ps) . ')';
         } else {
             $qapp = '';
         }
@@ -109,7 +115,7 @@ class quotes extends Module
             $r->reply("\2Quote[$resp[id]]\2: $resp[quote]");
         } else {
             if (!isset($r->args['num'])) {
-                throw new CmdException("No quotes have been added. Get started with addquote.");
+                throw new CmdException("No quotes found. Get started with addquote, or make sure quotes origin is set correctly.");
             } else {
                 throw new CmdException("Quote not found");
             }

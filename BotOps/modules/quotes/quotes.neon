@@ -18,4 +18,6 @@ Modules:
             addquote: {access: 1, func: cmd_addquote, loglvl: 1}
     SetReg:
         channel:
-            origin: {access: 1, desc: "your channels quotes or all quotes", opts: [default: "all", "all", "chan"]}
+            origin: {access: 1, desc: "Quotes to display, all or a space separated list of channels", opts: [default: "all"]}
+        channel_alias:
+            source: origin
