@@ -85,7 +85,7 @@ class youtube extends Module {
                     $dur = "{$di->y}y $dur";
                 }
                 $dur = trim($dur);
-                if($dur != '') {
+                if($dur == '') {
                     $dur = 'LIVE';
                 }
 
