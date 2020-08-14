@@ -77,11 +77,20 @@ class youtube extends Module {
                 if ($v->contentDetails->definition == 'hd') {
                     $lead = "YouTubeHD";
                 }
-                $patterns = Array('/\$yt/', '/\$title/', '/\$channel/', '/\$length/', '/\$date/', '/\$views/', '/\$likes/', '/\$hates/');
-                $replaces = Array($lead, $title, $chanTitle, $dur, $date, $views, $likes, $hates);
+                $patterns = Array('$yt' => $lead,
+                                  '$title' => $title,
+                                  '$channel' => $chanTitle,
+                                  '$length' => $dur,
+                                  '$date' => $date,
+                                  '$views' => $views,
+                                  '$likes' => $likes,
+                                  '$hates' => $hates);
                 $theme = $this->gM('SetReg')->getCSet('youtube', $chan, 'theme');
+                foreach($patterns as $find => $replace) {
+                    $theme = str_replace($find, $replace, $theme);
+                }
 
-                $this->pIrc->msg($chan, preg_replace($patterns, $replaces, $theme), 0, 1);
+                $this->pIrc->msg($chan, $theme, 0, 1);
             } catch (Exception $e) {
                 //$this->pIrc->msg($chan, "\2YouTube Error:\2 Unknown data received.");
                 echo "YouTube Error: Unknown data received.";
