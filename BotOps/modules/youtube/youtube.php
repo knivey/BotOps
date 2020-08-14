@@ -64,7 +64,30 @@ class youtube extends Module {
                 $title = $v->snippet->title;
 
                 $di = new DateInterval($v->contentDetails->duration);
-                $dur = $di->format('%hh %im %ss');
+                $dur = '';
+                if($di->s > 0) {
+                    $dur = "{$di->s}s";
+                }
+                if ($di->i > 0) {
+                    $dur = "{$di->i}m $dur";
+                }
+                if ($di->h > 0) {
+                    $dur = "{$di->h}h $dur";
+                }
+                if ($di->d > 0) {
+                    $dur = "{$di->d}d $dur";
+                }
+                //Seems unlikely, months and years
+                if ($di->m > 0) {
+                    $dur = "{$di->m}M $dur";
+                }
+                if ($di->y > 0) {
+                    $dur = "{$di->y}y $dur";
+                }
+                $dur = trim($dur);
+                if($dur != '') {
+                    $dur = 'LIVE';
+                }
 
                 $chanTitle = $v->snippet->channelTitle;
                 $datef = $this->gM('SetReg')->getCSet('youtube', $chan, 'date');
