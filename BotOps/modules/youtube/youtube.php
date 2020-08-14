@@ -81,9 +81,10 @@ class youtube extends Module {
                 $replaces = Array($lead, $title, $chanTitle, $dur, $date, $views, $likes, $hates);
                 $theme = $this->gM('SetReg')->getCSet('youtube', $chan, 'theme');
 
-                $this->pIrc->msg($chan, preg_replace($patterns, $replaces, $theme));
+                $this->pIrc->msg($chan, preg_replace($patterns, $replaces, $theme), 0, 1);
             } catch (Exception $e) {
-                $this->pIrc->msg($chan, "\2YouTube Error:\2 Unknown data received.");
+                //$this->pIrc->msg($chan, "\2YouTube Error:\2 Unknown data received.");
+                echo "YouTube Error: Unknown data received.";
             }
             curl_close($ch);
         }
