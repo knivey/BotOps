@@ -49,11 +49,7 @@ Start using exceptions for errors
 twitter link scanner - show the tweet on irc
 
 youtube alias channel to author in theme
-youtube video duration should show 0h when its 0
 
-setreg dont parse $vars in output
-
-WA: check the API for decimal results and also display those
 
 scalc: command that does simple math calcs that dont require WA
 
@@ -64,10 +60,6 @@ Vars:
 	bar that changes color as it gets full
 	random number that stores value per nick 30min
 	scalc? - so very simple math calculations that doesnt require WA
-
-Quotes: allow origin to be a list of channels
-
-whois: channels if on two lines only outputs last line
 
 
 Make an interface system for modules and allow them to say they implement X interface
@@ -84,8 +76,6 @@ trivia: stop game after so many questions
 #TODO put module specific configs inside that modules dir, not in main.conf (maybe inside the mod.neon?)
 #actually i think it can be nices to have all the configs in one location, maybe support both
 #make a way to reload the config
-
-#cleanup setreg options, what did i mean by this
 
 #TODO update mysql for binds
 
