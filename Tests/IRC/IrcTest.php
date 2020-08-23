@@ -29,21 +29,20 @@ class IrcTest extends PHPUnit\Framework\TestCase {
         $this->assertEquals(4, $irc->ipv);
         $this->assertEquals(1234, $irc->port);
         $this->assertEquals('unitpass', $irc->pass);
-        $this->assertEquals(50, $irc->timeout);
-        $this->assertEquals('127.0.0.1', $irc->bind);
+        $this->assertEquals(50, $irc->connectTimeout);
+        $this->assertEquals('127.0.0.1', $irc->bindIP);
         $this->assertEquals('UnitBot', $irc->nick);
         //$this->assertEquals(self::$sockets, $irc->pSockets);
-        $this->assertEquals(90, $irc->RTO);
+        $this->assertEquals(90, $irc->readTimeout);
         $this->assertInstanceOf('IrcFilters', $irc->ircFilters);
-        $this->assertGreaterThan(time()+8, $irc->nickCheck);
         $this->assertInstanceOf('Nicks', $irc->Nicks);
         $this->assertInstanceOf('KEventServer', $irc->eventServer);
         
         $irc = new Irc(self::$sockets, 'UnitBot', '127.0.0.1', 'testserv', 4);
         $this->assertEquals(6667,  $irc->port);
         $this->assertEquals('', $irc->pass);
-        $this->assertEquals(30, $irc->timeout);
-        $this->assertEquals(170, $irc->RTO);
+        $this->assertEquals(30, $irc->connectTimeout);
+        $this->assertEquals(170, $irc->readTimeout);
         
         $irc = new Irc(self::$sockets, 'UnitBot', '127.0.0.1', 'testserv', 8);
         $this->assertEquals(4, $irc->ipv);

@@ -1,341 +1,274 @@
 <?php
 
 require_once 'Tools/Tools.php';
-require_once 'IRC/IrcFilters.php';
-require_once 'KEvent/KEventServer.php';
-require_once 'IRC/IrcEvent.php';
-require_once 'IRC/Nicks.php';
+require_once __DIR__ . '/IrcFilters.php';
+require_once __DIR__ . '/../KEvent/KEventServer.php';
+require_once __DIR__ . '/IrcEvent.php';
+require_once __DIR__ . '/Nicks.php';
+require_once __DIR__ . '/State.php';
+
+require_once __DIR__ . '/../../vendor/autoload.php';
+use Amp\ByteStream;
+use Amp\Loop;
+use Amp\Socket\ClientTlsContext;
+use Amp\Socket\ConnectContext;
+use Amp\Socket\EncryptableSocket;
+use League\Uri;
+use function Amp\Socket\connect;
 
 /**
  * Interface to IRC Server
  */
-class Irc {
+class Irc implements \Psr\Log\LoggerAwareInterface {
+    protected \Psr\Log\LoggerInterface $log;
+
 	/**
 	 * IRC server to connect to
-	 * @var string $server
 	 */
-    public $server;
+    public string $server;
     
     /**
      * Port of the IRC server
-     * @var int $port
      */
-    public $port;
+    public int $port = 6667;
     
     /**
      * Password for the IRC server, If no pass leave blank
-     * @var string $pass
      */
-    public $pass;
+    public ?string $pass;
     
     /**
-     * How long until the connecting to the server times out 
-     * @var int $timeout
+     * How long until the connecting to the server times out
      */
-    public $timeout;
-    
-    /**
-     * Our IP to use for connecting from
-     * @var string $bind
-     */
-    public $bind;
+    public int $connectTimeout = 30;
     
     /**
      * Name of the bot and IRC nickname to try to get
-     * @var string $nick
      */
-    public $nick;
+    public string $nick;
     
     /**
      * Actual bot nickname on IRC (our nick might have been taken)
-     * @var string $curNick
      */
-    private $curNick;
+    private string $curNick;
     
     /**
      * The line to be sent for USER during connection
-     * @var string $user
      */
-    public $user;
+    public string $user = "bots localhost localhost :IRC Bot Services #bots";
     
     /**
      * What length to start word wrapping at
-     * @var int $wraplen
      */
-    public $wraplen;
-    
-    /**
-     * Contains the last line sent to the IRC server
-     * @var string $last_out
-     */
-    public $last_out;
+    public int $wraplen = 400;
     
     /**
      * Contains the last line we've recieved from IRC
-     * @var string $last_in
      */
-    public $last_in;
+    public ?string $last_in;
     
     /**
-     * contains info on last line (nick host chan w/e)
-     * @var array $last_info
+     * How long to go without any received data after pinging the server before timing out
      */
-    public $last_info = Array();
-    
+    public int $pingTimeout = 30;
+
     /**
-     * Ping timeout
-     * @var int $RTO
+     * Interval to ping server
      */
-    public $RTO;
+    public int $pingInterval = 30;
     
     /**
      * Line to send for auth after connecting
-     * @var string $authserv
      */
-    public $authserv;
+    public ?string $authserv;
     
     /**
      * Usermodes to set after connecting
-     * @var string $usermodes
      */
-    public $usermodes;
+    public ?string $usermodes;
     
     /**
      * Name of network received by 005 
-     * @var unknown
      */
-    public $network;
+    public ?string $network;
 
     /**
-     * @var IrcFilters $ircFilters
+     * How long to wait between reconnect attempts
      */
-    public $ircFilters;
-    
+    public int $reconnectInterval = 60;
+
     /**
-     * @var KEventServer $eventServer
+     * Used to filter outgoing text so we don't get G-Lined for rule breaking text
      */
-    public $eventServer;
-    
-    public $sent; // keep track of the rate we are sending for gs should not exceed 512b/10 sec
-    
-    /**
-     * @var Sockets $pSockets
-     */
-    private $pSockets; // pointner to socket manager
-    
-    /**
-     * Our Socket
-     * @var resource $sock
-     */
-    public $sock;
-    
+    public IrcFilters $ircFilters;
+
+    public KEventServer $eventServer;
+
+    protected ?ConnectContext $connectContext;
+    protected ?EncryptableSocket $socket;
+    protected \Amp\ByteStream\LineReader $reader;
     /**
      * State of the IRC connection
-     * Possible values:
-     * 'disconnected'
-	 * 'connecting'
-	 * 'registering' (sending NICK USER)
-	 * 'connected'   (got 001)
-	 * 'authed'      (authed with services)
-	 * 
-     * @var string $state
+     * Use consts from \IRC\State
      */
-    public $state;
+    public int $state;
+
+    public Nicks $Nicks;
 
     /**
-     * @var Nicks $Nicks
+     * Last time a ping was sent
      */
-    public $Nicks;
+    protected $pingTime;
 
     /**
-     * Keep track of users on netsplit
-     * Not Currently Implemented
-     * 
-     * $netspliters['splitIdx'] = Array(
-     * 'ppl' => Array('nick' => &$ppl['nick'])
-     * 'backTime' => time a user was seen returning
-     * 'splitTime' => time users left
-     * 'count' => number of users that left
-     *
-     * The idea is when we see one person return from a netsplit we know its either over
-     * or that user reconnected to another server. By using count to determin the percent
-     * of users that returned will help determine this.
-     * Also there should be a timeout on netsplits where we just forget the users.
-     *
-     * All times should have like a 5 second leeway so they mostly fall into the same split.
-     * @var array $netsplitters
+     * Interval to keep trying to regain our nickname
      */
-    public $netspliters;
+    public int $nickCheckInterval = 15;
 
-    /**
-     * Track a ping to keep sbnc connected and maybe later to tell us lagtime
-     * @var int $pingtime
-     */
-    public $pingtime;
-    
-    /**
-     * Timer for checking if our nick is taken
-     * @var int $nickCheck
-     */
-    public $nickCheck;
-    
     /**
      * Set when we have finished disconnecting and are ready to shutdown
-     * @var bool $canDie
      */
-    public $canDie = false;
+    public bool $canDie = false;
     
     /**
      * Set when the bot should be allowed to shutdown after disconnect
-     * @var bool $tryDie
      */
-    public $tryDie = false;
-    
-    /*****************************************************************
-     * User/Chan send quota system
-     *****************************************************************
-     * We will make new hooks for when a limit is broken
-     * then a module can decide what to do about it
-     * need to be provided with limit rules and keep them updated
-     * so i think setreg will need an option to call a function
-     * when settings are updated... (for perchan)
-     * and the rules will need to be loaded up on bot start
-     * 
-     * the CmdReg will set the quotasrc by default and the quotasrc
-     * will be cleared on the next read.
-     * things that aren't done in the same execution loop (callbacks)
-     * NEED TO SET SRC MANUALLY if you want the limits applied
-     * 
-     * We might be able to keep statistics in the module that handles
-     * the limits being broken?
-     *****************************************************************
+    public bool $tryDie = false;
+
+    /**
+     * Array of lines waiting to be sent to irc
      */
-    //public $quotaSrc = Array();
-    /*
-     * Store the user/chan that should be charged for sending data to irc.
-     * If empty no charges made
-     * Array(
-     * 'nick'
-     * 'chan'
-     * 'staff' true|false
-     * 'priority' true|false just makes the messages go at top of sendq
-     * )
+    public array $sendQ = Array();
+
+    /**
+     * Used as a calculation on when we can send again
+     * @var float $msg_since
      */
-    /*
-    function setQuotaSrc() {
-        
-    }
-    
-    function clearQuotaSrc() {
-        $this->quotaSrc = Array();
-    }
-    */
-    
+    public ?float $msg_since;
+
+    /**
+     * How to do throttling
+     * 0 - none
+     * 1 - ircu (GameSurge)
+     */
+    public int $throttleMethod = 1;
+
+    protected ?string $sendWatcher;
+    protected ?string $reconnectWatcher;
+    protected ?string $nickCheckWatcher;
+
+
+    //TODO remove all this, I don't want the irc lib accessing a module
+    public ModuleManager $pMM;
     /**
      * Wrapper to get the class object for the module name
-     * @param string $mod
-     * @return Module
      * @codeCoverageIgnore
      */
-    public function gM($mod) {
+    public function gM(string $mod) : Module {
         return $this->pMM->modules[$mod]['class'];
     }
 
     /**
      * Create Irc Class
-     * @param Sockets $sockets
      * @param string $nick 		Bot nickname
-     * @param string $bind 		Our IP to connect from
      * @param string $server 	Server to connect to
-     * @param number $ipv 		4 for IPv4, 6 for IPv6
-     * @param number $port		Server Port
      * @param string $pass		Server Password or NULL
-     * @param number $timeout		Connection Timeout
-     * @param number $pingtimeout	Ping Timeout
-     * @return Irc
      */
-    function __construct(&$sockets, $nick, $bind, $server, $ipv, $port = 6667, $pass = '', $timeout = 30, $pingtimeout = 170) {
-        $this->user   = "bots localhost localhost :IRC Bot Services #Bots";
-        $this->server = $server;
-
-        if ($ipv != 4 && $ipv != 6) {
-            $ipv = 4;
-        }
-
-        $this->ipv         = $ipv;
-        $this->port        = $port;
+    function __construct(string $nick, $server, $pass = null) {
+        $this->server      = $server;
         $this->pass        = $pass;
-        $this->timeout     = $timeout;
-        $this->bind        = $bind;
         $this->nick        = $nick;
-        $this->pSockets    = $sockets;
-        $this->RTO         = $pingtimeout;
+
         $this->ircFilters  = new IrcFilters();
-        $this->nickCheck   = time() + 10;
         $this->Nicks       = new Nicks();
         $this->eventServer = new KEventServer();
+        $this->connectContext = new ConnectContext;
+        $this->log = new \Psr\Log\NullLogger;
+    }
 
-        /*
-          $this->hooks = Array(
-          'connected' => Array(),
-          'disconnect' => Array(),
-          'join' => Array(),
-          'part' => Array(),
-          '+mode' => Array(),
-          '-mode' => Array(),
-          '+ban' => Array(),
-          '-ban' => Array(),
-          '+op' => Array(),
-          '-op' => Array(),
-          '+voice' => Array(),
-          '-voice' => Array(),
-          'kick' => Array(),
-          'topic' => Array(),
-          'quit' => Array(),
-          'msg' => Array(),
-          'authed' => Array(),
-          'nick' => Array(),
-          'notice' => Array(),
-          'out' => Array(),
-          'raw' => Array(), //raw data read in
-          'chanevent' => Array(), //any event you would see in an irc client channel
-          'killbot' => Array(), //called when bot asked to die
-          );
-          //chanevent function will recv args ('#chan', 'rawline')
-         */
+    public function setLogger(\Psr\Log\LoggerInterface $log)
+    {
+        $this->log = $log;
+
+        if(get_class($log) == "Monolog\Logger") {
+            $this->log->pushProcessor(function ($record) {
+                $record['extra']['IRC Nick'] = $this->nick;
+                return $record;
+            });
+        }
+    }
+
+    /**
+     * Set the address to make connections from
+     * @param string|null $bindIP
+     */
+    function setBindIP(?string $bindIP) {
+        $this->connectContext = $this->connectContext->withBindTo($bindIP);
+    }
+
+    function setSSL(bool $ssl, bool $verify = true) {
+        if($ssl) {
+            if (!$verify) {
+                $tls = (new ClientTlsContext($this->server))->withoutPeerVerification();
+            } else {
+                $tls = new ClientTlsContext($this->server);
+            }
+            $this->connectContext = $this->connectContext->withTlsContext($tls);
+        } else {
+            $this->connectContext = $this->connectContext->withoutTlsContext();
+        }
     }
 
     /**
      * Initiate connection to IRC server
      */
     function connect() {
-        $this->state = 'connecting';
-
-        if ($this->ipv == 4) {
-            $this->sock = $this->pSockets->createTCP($this, 'handleRead', 'handleError', 1, 'handleConnected', 1, $this->bind);
-        } else {
-            $this->sock = $this->pSockets->createTCPv6($this, 'handleRead', 'handleError', 1, 'handleConnected', 1, $this->bind);
+        if ($this->state != \IRC\State::DISCONNECTED) {
+            throw new Exception("Connect called but IRC is already connected");
         }
-
-        if (!$this->sock) {
-            die("IRC Couldn't create socket");
+        $this->log->info("Connecting");
+        $this->state = \IRC\State::CONNECTING;
+        $this->reconnectWatcher = null;
+        try {
+            $this->socket = yield connect($this->server . ':' . $this->port, $this->connectContext);
+        } catch (\Amp\Socket\ConnectException $e) {
+            $this->log->notice("Connection failed", [$e]);
+            $this ->reconnectWatcher = Loop::delay($this->reconnectInterval * 1000, [$this, 'connect']);
+            $this->log->info("Scheduled reconnect", ['reconnectInterval' => $this->reconnectInterval]);
+            return;
+        } catch (\Amp\CancelledException $e) {
+            $this->log->info("Connection canceled", [$e]);
+            return;
         }
-
-        //TODO Make this config variable
-        $this->pSockets->setReconTime($this->sock, 65);
-
-        $a = $this->pSockets->getOurAddr($this->sock);
-        $p = $this->pSockets->getOurPort($this->sock);
-
-        echo "IRC Local IP/PORT: $a/$p\n";
-        echo "IRC Connecting to Host: $this->server Port: $this->port IPv$this->ipv\n";
-
-        if (!$this->pSockets->connect($this->sock, $this->server, $this->port, $this->timeout)) {
-            list($errno, $errstr) = $this->pSockets->getLastErr($this->sock);
-            echo "IRC Error connecting [$errno] $errstr (ignoring)\n";
+        if($this->connectContext->getTlsContext() != null) {
+            try {
+                yield $this->socket->setupTLS();
+            } catch (\Amp\Socket\TlsException $e) {
+                $this->log->notice("TLS setup failed", [$e]);
+                $this ->reconnectWatcher = Loop::delay($this->reconnectInterval * 1000, [$this, 'connect']);
+                $this->log->info("Scheduled reconnect", ['reconnectInterval' => $this->reconnectInterval]);
+                return;
+            } catch (Exception $e) {
+                $this->log->warning("Exception setting up TLS, not scheduling a reconnect", [$e]);
+                return;
+            }
         }
+        $this->log->info("TLS Established");
+        //should already be done, but making sure..
+        $this->Nicks->clearAll();
+        $this->resetSendQ();
+        $this->log->info("Connected to IRC server");
+        $this->state = \IRC\State::REGISTERING;
+        if($this->pass != null) {
+            $this->raw("PASS $this->pass");
+        }
+        $this->raw("NICK $this->nick");
+        $this->curNick = $this->nick;
+        $this->raw("USER $this->user");
 
-        $this->pSockets->setRTO($this->RTO, $this->sock);
+        $this->reader = new \Amp\ByteStream\LineReader($this->socket);
+        \Amp\asyncCall([$this, 'readLoop']);
+        \Amp\asyncCall([$this, 'processSendQ']);
     }
     
     /**
@@ -346,67 +279,51 @@ class Irc {
         $this->eventServer->sendEvent(new IrcEvent('killbot', Array($quitmsg)));
         $this->raw('QUIT :' . $quitmsg);
         $this->tryDie = true;
-        $this->pSockets->setPersist($this->sock, false);
     }
 
     /**
      * Handle socket errors
-     * @param resource $sock
-     * @param int $error
+     * @param Exception $e
      */
-    function handleError($sock, $error) {
-        echo "IRC SOCKET ERROR [$error] " . socket_strerror($error) . "\r\n";
-        //if($this->pSockets->getRecon($this->sock)) {
-        //	echo "Socket is reconecting, not calling disconnect hooks\n";
-        //	return;
-        //}
+    function handleError(Exception $e) {
+        $this->log->info("Disconnected", [$e]);
+        \Amp\Loop::cancel($this->sendWatcher);
+        \Amp\Loop::cancel($this->nickCheckWatcher);
+        //TODO ping watcher?
+        //\Amp\Loop::cancel($this->);
         $this->Nicks->clearAll();
-        $this->state = 'disconnected';
-        $this->eventServer->sendEvent(new IrcEvent('disconnect', Array()));
+        $this->resetSendQ();
+        $this->state = \IRC\State::DISCONNECTED;
+        $this->eventServer->sendEvent(new IrcEvent('disconnect'));
         if($this->tryDie) {
             $this->canDie = true;
         }
     }
 
-	/**
-	 * Handle socket connect
-	 * @param resource $sock
-	 */
-    function handleConnected($sock) {
-        $this->Nicks->clearAll();
-        echo "IRC Connection established\n";
-        $this->state = 'registering';
-        $this->sock = $sock;
-        if($this->pass != null) {
-            $this->pSockets->send($this->sock, "PASS $this->pass\r\n");
-        }
-        $this->pSockets->send($this->sock, "NICK $this->nick\r\n");
-        $this->curNick = $this->nick;
-        $this->pSockets->send($this->sock, "USER $this->user\r\n");
-    }
-
     /**
      * Handle read from socket
-     * @param resource $sock
-     * @param string $line
      */
-    function handleRead($sock, $line) {
-        $line = trim($line);
-        $this->parseLine($sock, $line);
+    function readLoop() {
+        while ($this->state != \IRC\State::DISCONNECTED) {
+            try {
+                $line = yield $this->reader->readLine();
+            } catch (Exception $e) {
+                $this->handleError($e);
+                return;
+            }
+            if ($line == null) {
+                $this->log->debug("Reader returned null");
+                $this->handleError(new Exception("Read returned null"));
+                return;
+            }
+            $line = rtrim($line, "\r");
+            $this->parseLine($line);
+        }
     }
 
     /**
      * Get the bots current nickname on irc
      * @return string
-     */
-    public function curNick() {
-        return $this->curNick;
-    }
-
-    /**
-     * Get the bots current nickname on irc
-     * @return string
-     * @todo remove this and use above function
      */
     public function currentNick() {
         return $this->curNick;
@@ -417,17 +334,18 @@ class Irc {
      * @param string $newnick
      */
     public function chgNick($newnick) {
+        $this->log->info("Changing nickname", ['old' => $this->nick, 'new' => $newnick]);
         $this->raw("NICK $newnick");
         $this->nick = $newnick;
     }
     
 	/**
-	 * Worp wrap a line by inserting \n, if the result is over the
+	 * Word wrap a line by inserting \n, if the result is over the
 	 * limited number of lines replace all with error
 	 * @param string $target Target of message
 	 * @param string $string String to process
 	 * @param bool $no_f If true errors for exceeding limit
-	 * @return string
+	 * @return array
 	 */
     private function wrappy($target, $string, $no_f) {
         $wraplen = &$this->wraplen;
@@ -484,7 +402,7 @@ class Irc {
             $keys = array_keys($nchans);
             $c = '';
             foreach($keys as $k) {
-                if($this->Nicks->isOp($this->curNick(), $k) || $this->Nicks->isVoice($this->curNick(), $k)) {
+                if($this->Nicks->isOp($this->currentNick(), $k) || $this->Nicks->isVoice($this->currentNick(), $k)) {
                     $c = $k;
                 }
             }
@@ -603,94 +521,78 @@ class Irc {
     }
 
     /**
-     * Array of lines waiting to be sent to irc
-     * @var array $sendq
-     */
-    public $sendq = Array();
-
-    public $maxSendBytes = 512;
-    public $maxSendSec = 10;
-    public function setThrottle($bytes, $seconds) {
-        $this->maxSendBytes = $bytes;
-        $this->maxSendSec = $seconds;
-    }
-    
-    /*
-     * ircu allows us to send 5 lines burst
-     * after that it will throttle by 2 seconds until
-     * 10 seconds have passed?
-     */
-    
-    /**
-     * Used as a calculation on when we can send again
-     * @var float $msg_since
-     */
-    public $msg_since;
-    
-    /**
-     * Time we send the last message out
-     * @var float $msg_lasttime
-     */
-    public $msg_lasttime;
-    
-    /**
      * Process sending our out queue respecting flood rules
      */
-    public function processSendq() {
-        if(empty($this->sendq)) {
+    public function processSendQ() {
+        $this->sendWatcher = null;
+        if(empty($this->sendQ)) {
             return;
         }
-        
-        //flood prevention disabled
-        if($this->maxSendSec == 0) {
-            $keys = array_keys($this->sendq);
-            foreach($keys as &$key) {
-                $this->pSockets->send($this->sock, $this->sendq[$key]);
-                unset($this->sendq[$key]);
+        try {
+            if ($this->throttleMethod == 0) {
+                foreach ($this->sendQ as $key => $msg) {
+                    $this->log->info("Sending line", ['line'=>$msg]);
+                    yield $this->socket->write($msg);
+                    unset($this->sendQ[$key]);
+                }
+                return;
             }
-            return;
-        }
-        
-        $this->msg_lasttime = microtime_float();
-        if($this->msg_lasttime > $this->msg_since) {
-            $this->msg_since = $this->msg_lasttime;
-        }
-        $keys = array_keys($this->sendq);
-        foreach($keys as &$key) {
-            $line = $this->sendq[$key];
-            if($this->msg_since - microtime_float() >= 10.1) {
-                break;
+            if ($this->throttleMethod == 1) {
+                $time = microtime(true);
+                if ($time > $this->msg_since) {
+                    $this->msg_since = $time;
+                }
+
+                foreach ($this->sendQ as $key => $msg) {
+                    if ($this->msg_since - microtime(true) >= 10) {
+                        break;
+                    }
+                    $this->log->info("Sending line", ['line'=>$msg]);
+                    yield $this->socket->write($msg);
+                    $this->msg_since += 2 + ((strlen($msg) + 2) / 120);
+                    unset($this->sendQ[$key]);
+                }
+
+                if (!empty($this->sendQ)) {
+                    $next = $this->msg_since - 10 - microtime(true) + 0.1;
+                    //echo "delay processingsendq for " . $next * 1000 . "ms\n";
+                    $this->sendWatcher = Loop::delay($next * 1000, [$this, 'processSendQ']);
+                }
+                return;
             }
-            $this->pSockets->send($this->sock, $this->sendq[$key]);
-            unset($this->sendq[$key]);
-            $this->msg_since += 2 + (strlen($line) / 120);
+        } catch (Exception $e) {
+            $this->handleError($e);
+        }
+        //TODO use a getter and setter to validate
+        throw new Exception("Unknown throttle method set " . $this->throttleMethod . "\n");
+    }
+
+    public function resetSendQ() {
+        $this->sendQ = [];
+        $this->msg_since = null;
+        if($this->sendWatcher) {
+            \Amp\Loop::cancel($this->sendWatcher);
+            $this->sendWatcher = null;
         }
     }
-    
+
     /**
      * To be called every cycle, process all our logic
      */
     public function logic() {
-        if($this->state == 'authed') {
-            if($this->pingtime < time() - 30) {
-                $this->pingtime = time();
+        if($this->state == \IRC\State::AUTHED) {
+            $pingInterval = $this->pingInterval;
+            if ($pingInterval < 5) $pingInterval = 5;
+            if($this->pingTime < time() - $pingInterval) {
+                $this->pingTime = time();
                 $this->raw('PING LAG' . time());
             }
-            if($this->nickCheck < time() - 30 && $this->curNick != $this->nick) {
-                $this->raw('NICK ' . $this->nick);
-                $this->nickCheck = time();
-            }
         }
-        
-        if($this->state == 'disconnected') {
-            $this->sendq = Array();
-            return;
-        }
-        $this->processSendq();
+
     }
     
     /**
-     * Queue a raw message to be sent to the server.
+     * Queue a raw message to be sent to the server. \r\n is appended.
      * @param string $s line to send
      */
     public function raw($s) {
@@ -704,17 +606,11 @@ class Irc {
             }
         }
         if($s != '') {
-            $this->sendq[] = "$s\r\n";
+            $this->sendQ[] = "$s\r\n";
         }
-    }
-
-    /**
-     * Send a line directly to the socket.
-     * Probably should not be used outside Irc.
-     * @param string $line
-     */
-    function dump($line) {
-        $this->pSockets->send($this->sock, "$line\r\n");
+        if($this->sendWatcher == null) {
+            $this->sendWatcher = \Amp\Loop::defer([$this, 'processSendQ']);
+        }
     }
 
     /**
@@ -785,7 +681,6 @@ class Irc {
         //:BotOps!~bots@BotNetwork.users.gamesurge PART #bots :hi
         //:BotOps!~bots@BotNetwork.users.gamesurge PART :#bots
         if ($arg[2][0] == '#') {
-            $arg[2] = $arg[2];
             $text = arg_range($arg, 3, -1);
             $text = substr($text, 1);
         } else {
@@ -853,8 +748,9 @@ class Irc {
         //}
         //:AuthServ!AuthServ@Services.GameSurge.net NOTICE BotOps :I recognize you.
         //:AuthServ!AuthServ@Services.GameSurge.net NOTICE knivey :You are already authed to account kyte; you must reconnect to auth to a different account.
-        if ($this->state != 'authed' && $nick == 'AuthServ' && ($text == 'I recognize you.' || arg_range($arg, 3, 6) == ':You are already authed')) {
-            $this->state = 'authed';
+        if ($this->state != \IRC\State::AUTHED && $nick == 'AuthServ' &&
+            ($text == 'I recognize you.' || arg_range($arg, 3, 6) == ':You are already authed')) {
+            $this->state = \IRC\State::AUTHED;
             $this->eventServer->sendEvent(new IrcEvent('authed', Array()));
         }
         if ($arg[2][0] == '#') {
@@ -982,15 +878,14 @@ class Irc {
     
     /**
      * Parse an incoming line from Irc
-     * @param resource $sock
      * @param string $line
      */
-    function parseLine($sock, $line) {
+    function parseLine($line) {
+        $this->log->info("Parsing line", ['line', $line]);
         $this->gM('ParseUtil')->clear();
         $this->last_in = $line;
         $this->eventServer->sendEvent(new IrcEvent('raw', Array($line)));
-        $dt = strftime('%m/%d/%y %T');
-        echo "DATA IN [$dt]: $line\r\n";
+
         if($line[0] == ':') {
             $line = substr($line, 1);
         }
@@ -1001,10 +896,10 @@ class Irc {
         if(strlen($text) > 0 && $text[0] == ':') {
             $text = substr($text, 1);
         }
-        //$text = substr($line, strpos($line, ':')); //this will break if channel name has :
+
         switch($arg[0]) {
             case 'PING':
-                $this->pSockets->send($sock, "PONG $arg[1]\r\n");
+                $this->raw("PONG $arg[1]");
                 return;
             default:
                 $nick = explode('!', $arg[0]);
@@ -1060,7 +955,7 @@ class Irc {
     }
 
     function p001() {
-        $this->state = 'connected';
+        $this->state = \IRC\State::CONNECTED;
         $this->eventServer->sendEvent(new IrcEvent('connected', Array()));
         $this->raw($this->authserv);
         $this->raw('MODE ' . $this->currentNick() . ' ' . $this->usermodes);
@@ -1080,7 +975,15 @@ class Irc {
         if ($arg[3] == $this->curNick) {
             $this->curNick .= '_';
             $this->raw("NICK $this->curNick");
+            $this->nickCheckWatcher = Loop::delay($this->nickCheckInterval * 1000, [$this, 'retryNick']);
+        } elseif ($arg[3] == $this->nick) {
+            $this->nickCheckWatcher = Loop::delay($this->nickCheckInterval * 1000, [$this, 'retryNick']);
         }
+    }
+
+    protected function retryNick() {
+        $this->raw("NICK $this->nick");
+        $this->nickCheckWatcher = null;
     }
 
     function p366($arg) {

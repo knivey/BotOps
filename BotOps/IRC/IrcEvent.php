@@ -7,7 +7,7 @@ require_once 'KEvent/KEvent.php';
 class IrcEvent extends KEvent {
     public $type;
     public $param;
-    public function __construct($type, $param) {
+    public function __construct($type, $param = []) {
         $this->type = $type;
         $this->param = $param;
     }

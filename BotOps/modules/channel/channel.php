@@ -747,7 +747,7 @@ class channel extends Module
                         $c = $matches[2];
                     }
                     $num     = $num + 1;
-                    $curNick = $this->pIrc->curNick();
+                    $curNick = $this->pIrc->currentNick();
                     if (array_key_exists($curNick,
                                          $this->chans[$matches[2]]['nicks']) && is_array($this->chans[$matches[2]]['nicks'][$curNick])) {
                         if (array_key_exists('@',

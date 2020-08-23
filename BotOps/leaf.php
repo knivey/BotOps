@@ -7,6 +7,7 @@
  * **************************************************************************
  */
 
+
 date_default_timezone_set('EST5EDT');
 
 declare(ticks = 1);
@@ -33,43 +34,28 @@ if (!posix_setsid()) {
     die("could not detach from terminal");
 }
 
-register_shutdown_function('shutdown');
+include_once 'IRC/Irc.inc';
+include_once 'modules/ModuleManager.inc';
+include_once 'Tools/Duration.inc';
+include_once 'Tools/OAuth.php';
+include_once 'Tools/twitteroauth.php';
 
-function shutdown() {
-    posix_kill(posix_getpid(), SIGHUP);
-}
+require __DIR__ . '/../vendor/autoload.php';
+use Amp\Loop;
+use Nette\Neon\Neon;
 
-// setup signal handlers
-pcntl_signal(SIGTERM, "sig_handler");
-pcntl_signal(SIGHUP, "sig_handler");
 
 $dead = false;
 
-function sig_handler($signo) {
+$signalWatcher = Loop::onSignal(SIGTERM, function () {
     global $dead;
-
-    switch ($signo) {
-        case SIGTERM:
-            allmsg("#bots,#botstaff", "Received SIGTERM lol guess i quit now ;[");
-            allquit("SIGTERM");
-            //$bnet->raw('QUIT');
-            $dead = true;
-            break;
-        case SIGHUP:
-            allmsg("#bots,#botstaff", "Received SIGHUP (doing NOTHING about it)");
-            //allraw("QUIT :Restarting...");
-            $dead = true;
-            //exec("php bnscript.php $irc->nick > /dev/null");
-            break;
-        default:
-            allmsg("#botstaff,#bots", "Received signal number: $signo");
-        // handle all other signals
-    }
-}
+    allmsg("#bots,#botstaff", "Received SIGTERM lol guess i quit now ;[");
+    allquit("SIGTERM");
+    $dead = true;
+});
 
 function allmsg($target, $message) {
     global $bots;
-
     foreach ($bots as &$bot) {
         $bot->Irc->raw("PRIVMSG $target :$message");
     }
@@ -77,24 +63,10 @@ function allmsg($target, $message) {
 
 function allquit($message) {
     global $bots;
-
     foreach ($bots as &$bot) {
         $bot->Irc->killBot($message);
     }
 }
-
-include_once 'Sockets.inc';
-include_once 'IRC/Irc.inc';
-include_once 'modules/ModuleManager.inc';
-include_once 'HttpServ.php';
-include_once 'Tools/Duration.inc';
-include_once 'Tools/OAuth.php';
-include_once 'Tools/twitteroauth.php';
-require __DIR__ . '/../vendor/autoload.php';
-use Nette\Neon\Neon;
-
-//500 000 microseconds = 0.5 seconds
-$sockets = new Sockets(0, 800000);
 
 /*
  * Load the config file
@@ -136,7 +108,6 @@ try {
 
 try {
     $botnames = Array();
-
     foreach ($Mysql->query('select name,active from bots where active = 1') as $bot) {
         $botnames[] = $bot['name'];
     }
@@ -160,7 +131,6 @@ $startbots = Array();
 
 $arf = $argv;
 unset($arf[0]); //command name
-var_dump($arf);
 
 if (empty($arf)) {
     echo "Populating startbots from mysql\n";
@@ -171,24 +141,21 @@ if (empty($arf)) {
         if ($b[0] == '-' && $b[1] == '-') {
             $b = substr($b, 2);
             if ($b == 'help') {
-                echo $usage;
-                die();
+                die($usage);
             }
             if (substr($b, 0, strlen('config')) == 'config') {
-                echo $usage;
-                die();
+                die($usage);
             }
         } else {
             if (array_search($b, $botnames) === false) {
-                echo "There is no configuration for that bot: $b\n";
-                die();
+                die("There is no configuration for that bot: $b\n");
             }
             $startbots[] = $b;
         }
     }
 }
 
-var_dump($startbots);
+echo "Starting bots: " . implode(', ', $startbots) . "\n";
 $MLoader = new ModuleLoader();
 function startbots(array $startbots) {
     global $bots, $config, $sockets, $Mysql;
@@ -196,8 +163,7 @@ function startbots(array $startbots) {
         $bots[$b] = new Bot($b, $config, $sockets, $Mysql);
         echo "Starting Bot $b\n";
         if (!$bots[$b]) {
-            echo "FAILED TO CREATE BOT\n";
-            die();
+            die("FAILED TO CREATE BOT\n");
         }
         $bots[$b]->init();
         $bots[$b]->Irc->connect();
@@ -206,24 +172,19 @@ function startbots(array $startbots) {
 startbots($startbots);
 
 class Bot {
-
-    public $Sockets;
-    public $Irc;
-    public $BotNet;
-    /* @var $Mysql PDO  */
-    public $Mysql;
-    public $ModuleManager;
+    public Irc $Irc;
+    public PDO $Mysql;
+    public ModuleManager $ModuleManager;
     public $Config;
     public $XMLRPC;
-    public $bindIp;
+    public ?string $bindIp;
     public $botInfo;
     public $name;
 
-    function __construct($name, &$config, Sockets &$sockets, PDO &$mysql) {
+    function __construct($name, &$config, PDO &$mysql) {
         $this->name    = $name;
         $this->Mysql   = &$mysql;
         $this->Config  = &$config;
-        $this->Sockets = &$sockets;
     }
 
     function stop() {
@@ -240,7 +201,6 @@ class Bot {
 
     function init() {
         global $MLoader;
-
         $cInfo = $this->Config;
 
         // Fetch info about this bot
@@ -265,10 +225,10 @@ class Bot {
         var_dump($botinfo);
 
         //Initialize its IRC connection
-        $this->Irc = new Irc($this->Sockets, $this->name, $botinfo['ip'], $botinfo['server'], $botinfo['ipv'],
-            $botinfo['port'], $botinfo['pass'], $cInfo['irc']['connect_timeout'] ?? 15, $cInfo['irc']['ping_timeout'] ?? 90);
+        $this->Irc = new Irc($this->name, $botinfo['ip'], $botinfo['server'], $botinfo['ipv'],
+            $botinfo['port'], $botinfo['pass'], $cInfo['irc']['connect_timeout'] ?? 15,
+            $cInfo['irc']['ping_timeout'] ?? 90);
 
-        $this->Irc->setThrottle($botinfo['throttle_bytes'], $botinfo['throttle_sec']);
         $this->Irc->wraplen   = $cInfo['irc']['wraplen'] ?? 400;
         $userline_user = $botinfo['user'] ?? 'bots';
         $userline = $botinfo['userline'] ?? 'localhost localhost :IRC Bot Services #Bots';
@@ -279,15 +239,14 @@ class Bot {
         $this->botInfo        = $botinfo;
 
         $this->loadFilters();
-
-        $this->XMLRPC = new HttpServ($this->Sockets, $botinfo['xmlip'], $botinfo['xmlport'], true);
+        //TODO replace with amp
+        $this->XMLRPC = new HttpServ($botinfo['xmlip'], $botinfo['xmlport'], true);
         $this->XMLRPC->init();
 
-        $this->ModuleManager = new ModuleManager($this->Irc, $this->Sockets, $this->BotNet,
+        $this->ModuleManager = new ModuleManager($this->Irc,
             $this->Mysql, $this->XMLRPC, $MLoader, $cInfo);
         $this->ModuleManager->init();
         $this->Irc->pMM      = $this->ModuleManager;
-        //load botnet
     }
 
     function loadFilters() {
@@ -313,7 +272,6 @@ class Bot {
             $this->Irc->msg('#botstaff', "Exception while increasing filter caught count: " . $e->getMessage());
         }
         $this->Irc->msg('#botstaff', "\2WARNING:\2 Irc filter [$filt[id]] rule broken in a $ss[0] to $ss[1]");
-        //$this->bnet->msg('#botstaff', "\2WARNING:\2 Irc filter rule broken in \2Line:\2 $s");
     }
 
     function go() {
@@ -331,8 +289,6 @@ while (count($bots) > 0) {
         echo "Sending MySQL Ping\n";
     }
 
-    $sockets->process();
-
     foreach ($bots as $key => &$bot) {
         $bot->go();
 
@@ -343,5 +299,4 @@ while (count($bots) > 0) {
             gc_collect_cycles();
         }
     }
-    //echo strftime('%T', time()) . " LOLTEST\n";
 }

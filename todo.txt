@@ -80,3 +80,5 @@ trivia: stop game after so many questions
 #TODO update mysql for binds
 
 #TODO needauth for CmdReg funcs, useful in the user module for PMs at least
+
+#make forking to background optional

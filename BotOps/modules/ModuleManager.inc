@@ -14,8 +14,6 @@ use Nette\Neon\Neon;
 
 class ModuleManager {
     public $pIrc;
-    public $pBotNet;
-    public $pSockets;
     public $pMysql; // Mysql class
     public $pXMLRPC;
     public $MLoader; // ModuleLoader
@@ -54,10 +52,8 @@ class ModuleManager {
      * @param ModuleLoader $MLoader
      * @param Array $cinfo
      */
-    function __construct(Irc &$Irc, Sockets &$Sockets, &$BotNet, PDO &$Mysql, &$XMLRPC, ModuleLoader &$MLoader, $cinfo) {
+    function __construct(Irc &$Irc, PDO &$Mysql, &$XMLRPC, ModuleLoader &$MLoader, $cinfo) {
         $this->pIrc = &$Irc;
-        $this->pSockets = &$Sockets;
-        $this->pBotNet = &$BotNet;
         $this->pMysql = &$Mysql;
         $this->pXMLRPC = &$XMLRPC;
         $this->MLoader = &$MLoader;
