@@ -233,8 +233,8 @@ class fun extends Module {
         $ids = Array();
         $stmt->closeCursor();
 
-        foreach ($res as $r) {
-            $ids[] = $r['id'];
+        foreach ($res as $re) {
+            $ids[] = $re['id'];
         }
 
         $ids = implode(', ', $ids);
