@@ -1,0 +1,8 @@
+description: "Bing.com websearch"
+require: [CmdReg]
+Modules:
+    CmdReg:
+        funcs:
+            cmd_bing: {syntax: <query>..., desc: Search the net with bing}
+        binds:
+            bing: {func: cmd_bing}
