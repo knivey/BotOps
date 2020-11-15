@@ -160,16 +160,29 @@ $MLoader = new ModuleLoader();
 function startbots(array $startbots) {
     global $bots, $config, $sockets, $Mysql;
     foreach ($startbots as $b) {
-        $bots[$b] = new Bot($b, $config, $sockets, $Mysql);
+        $bots[$b] = new Bot($b, $config, $Mysql);
         echo "Starting Bot $b\n";
-        if (!$bots[$b]) {
-            die("FAILED TO CREATE BOT\n");
-        }
         $bots[$b]->init();
         $bots[$b]->Irc->connect();
     }
 }
 startbots($startbots);
+
+/*
+ * TODO items left for amp update
+ * DONE modulemanager slots
+ * modules logic()
+ * httpserv (xmlrpc)
+ * any modules using sockets (scorebot)
+ * any modules making web requests
+ * castinfo streams?
+ *
+ * reloaded modules that use sockets need to cancel/close connections or find way to transfer?
+ *
+ * find a way to automate thorough testing of the irc lib networking, especially connection errors, reconnects timeouts etc
+ * irc lib will be on its own repo soon and want to make it full featured but first focus on making amp work
+ */
+
 
 class Bot {
     public Irc $Irc;
@@ -185,14 +198,6 @@ class Bot {
         $this->name    = $name;
         $this->Mysql   = &$mysql;
         $this->Config  = &$config;
-    }
-
-    function stop() {
-        $this->XMLRPC->stop();
-        $this->ModuleManager->stop();
-        unset($this->XMLRPC);
-        unset($this->Irc);
-        unset($this->ModuleManager);
     }
 
     function __destruct() {
@@ -225,10 +230,16 @@ class Bot {
         var_dump($botinfo);
 
         //Initialize its IRC connection
-        $this->Irc = new Irc($this->name, $botinfo['ip'], $botinfo['server'], $botinfo['ipv'],
-            $botinfo['port'], $botinfo['pass'], $cInfo['irc']['connect_timeout'] ?? 15,
-            $cInfo['irc']['ping_timeout'] ?? 90);
-
+        $this->Irc = new Irc($this->name, $botinfo['server'], $botinfo['pass']);
+        $this->Irc->setBindIP($botinfo['ip']);
+        $this->Irc->port = $botinfo['port'];
+        //TODO add ssl flag to db
+        if (isset($cInfo['irc']['connect_timeout'])) {
+            $this->Irc->setConnectTimeout($cInfo['irc']['connect_timeout']);
+        }
+        if (isset($cInfo['irc']['ping_timeout'])) {
+            $this->Irc->pingTimeout = $cInfo['irc']['ping_timeout'];
+        }
         $this->Irc->wraplen   = $cInfo['irc']['wraplen'] ?? 400;
         $userline_user = $botinfo['user'] ?? 'bots';
         $userline = $botinfo['userline'] ?? 'localhost localhost :IRC Bot Services #Bots';
@@ -251,11 +262,9 @@ class Bot {
 
     function loadFilters() {
         $filters = Array();
-
         foreach ($this->Mysql->query('SELECT * FROM filters') as $row) {
             $filters[$row['id']] = $row;
         }
-
         $this->Irc->ircFilters->loadFilters($filters);
         $this->Irc->ircFilters->setFilterHandler($this, 'ircCaughtFilter');
     }
@@ -273,15 +282,10 @@ class Bot {
         }
         $this->Irc->msg('#botstaff', "\2WARNING:\2 Irc filter [$filt[id]] rule broken in a $ss[0] to $ss[1]");
     }
-
-    function go() {
-        $this->ModuleManager->processSignals();
-        $this->ModuleManager->logic();
-        $this->Irc->logic();
-    }
-
 }
 
+
+//TODO amp loop replaces this
 while (count($bots) > 0) {
     if ($MySQL_LastPing + $MySQL_TimeOut < time()) {
         $MySQL_LastPing = time();
@@ -290,11 +294,9 @@ while (count($bots) > 0) {
     }
 
     foreach ($bots as $key => &$bot) {
-        $bot->go();
-
+        //TODO seems wrong to have canDie in Irc
         if ($bot->Irc->canDie) {
             //bot is ready to be removed
-            $bot->stop();
             unset($bots[$key]);
             gc_collect_cycles();
         }

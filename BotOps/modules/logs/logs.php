@@ -36,23 +36,22 @@ class logs extends Module {
     }
 
     //Slot for module unloaded
-    function unloaded($args) {
+    function moduleUnloaded(string $name) {
         //cleanup our sets
-        echo "Logs unloading module $args[name]\n";
-        unset($this->dbs[$args['name']]);
+        echo "Logs unloading module $name\n";
+        unset($this->dbs[$name]);
     }
 
-    function reloaded($args) {
-        echo "Logs unloading module $args[name] for reload\n";
-        unset($this->dbs[$args['name']]);
-        $this->loaded($args);
+    function moduleReloaded(string $name) {
+        echo "Logs unloading module $name for reload\n";
+        unset($this->dbs[$name]);
+        $this->moduleLoaded($name);
     }
 
-    function loaded($args) {
-        $name = $args['name'];
+    function moduleLoaded(string $name) {
         echo "logs loading module $name\n";
-        $info = $this->pMM->getConf($args['name'], 'logs');
-        var_dump($info);
+        $info = $this->pMM->getConf($name, 'logs');
+        //var_dump($info);
         if ($info == null)
             return;
         //Handle our section of registry.conf here

@@ -998,17 +998,5 @@ class admin extends Module {
         $bi['nicks'] = array_keys($this->pIrc->Nicks->ppl);
         return $bi;
     }
-    
-    function rehash(&$old) {
-        return;
-    }
-
-    function loaded($args) {
-        $this->reloaded($args);
-    }
-    
-    function reloaded($args) {
-        return;
-    }
 }
 

@@ -32,7 +32,7 @@ require_once('Tools/Tools.php');
     function listasets() {
     	$users = $this->gM('user')->allUsers();
     	
-    	echo "BEGINING SETREG ACCOUNT SETS DUMP:\n";
+    	echo "BEGINNING SETREG ACCOUNT SETS DUMP:\n";
     	foreach($users as $user) {
     		echo " * User: $user\n";
     		$sets = $this->gM('user')->getSet($user, 'SetReg', 'sets');
@@ -421,14 +421,14 @@ require_once('Tools/Tools.php');
         $this->chanExtras[$mod] = Array('mod' => $mod, 'cb' => $cb, 'ws' => $ws);
     }
 
-    function loaded($args) {
-        echo "SetReg loading module $args[name]\n";
-        $mod = strtolower($args['name']);
-        $info = $this->pMM->getConf($args['name'], 'SetReg');
+    function moduleLoaded(string $name) {
+        echo "SetReg loading module $name\n";
+        $mod = strtolower($name);
+        $info = $this->pMM->getConf($name, 'SetReg');
         if($info == null) return;
         //Handle our section of registry.conf here
         if(isset($info['account']) && is_array($info['account'])) {
-            foreach($info['account'] as $name => $set) {
+            foreach($info['account'] as $aname => $set) {
                 $access = $set['access'] ?? null;
                 $desc = $set['desc'] ?? "No description";
                 $default = null;
@@ -439,11 +439,11 @@ require_once('Tools/Tools.php');
                 if(empty($set['opts'])) {
                     $set['opts'] = null;
                 }
-                $this->addAccountSet($mod, $name, $set['opts'], $desc, $default, $access);
+                $this->addAccountSet($mod, $aname, $set['opts'], $desc, $default, $access);
             }
         }
         if(isset($info['channel']) && is_array($info['channel'])) {
-            foreach($info['channel'] as $name => $set) {
+            foreach($info['channel'] as $cname => $set) {
                 $access = $set['access'] ?? 0;
                 $desc = $set['desc'] ?? "No description";
                 $default = null;
@@ -454,35 +454,34 @@ require_once('Tools/Tools.php');
                 if(empty($set['opts'])) {
                     $set['opts'] = null;
                 }
-                $this->addChanSet($mod, $name, $set['opts'], $desc, $default, $access);
+                $this->addChanSet($mod, $cname, $set['opts'], $desc, $default, $access);
             }
         }
         if(array_key_exists('channel_alias', $info) && is_array($info['channel_alias'])) {
-            foreach($info['channel_alias'] as $name => $target) {
-                $this->addChanAlias($mod, $target, $name);
+            foreach($info['channel_alias'] as $caname => $target) {
+                $this->addChanAlias($mod, $target, $caname);
             }
         }
         if(array_key_exists('account_alias', $info) && is_array($info['account_alias'])) {
-            foreach($info['account_alias'] as $name => $target) {
-                $this->addAccountAlias($mod, $target, $name);
+            foreach($info['account_alias'] as $aaname => $target) {
+                $this->addAccountAlias($mod, $target, $aaname);
             }
         }
     }
 
-    //Slot for module unloaded
-    function unloaded($args) {
+    function moduleUnloaded(string $name) {
         //cleanup our sets
-        $args['name'] = strtolower($args['name']);
-        unset($this->accountSets[$args['name']]);
-        unset($this->channelSets[$args['name']]);
-    }
-
-    function reloaded($args) {
-        echo "SetReg unloading module $args[name] for reload\n";
-        $name = strtolower($args['name']);
+        $name = strtolower($name);
         unset($this->accountSets[$name]);
         unset($this->channelSets[$name]);
-        $this->loaded($args);
+    }
+
+    function moduleReloaded(string $name) {
+        echo "SetReg unloading module $name for reload\n";
+        $name = strtolower($name);
+        unset($this->accountSets[$name]);
+        unset($this->channelSets[$name]);
+        $this->moduleLoaded($name);
     }
 
     function rehash(&$old) {

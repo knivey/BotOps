@@ -82,3 +82,11 @@ trivia: stop game after so many questions
 #TODO needauth for CmdReg funcs, useful in the user module for PMs at least
 
 #make forking to background optional
+
+irc reconnects should be able to say you can do 3 times immediately, then have to wait like a minute
+
+XMLRPC check how well errors and retries are handled
+
+Would like to make things able to handle multiple irc networks
+
+Implement module unloading

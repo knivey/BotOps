@@ -45,8 +45,6 @@ class ModuleManager {
     /**
      * Constructor.
      * @param Irc $Irc
-     * @param Sockets $Sockets
-     * @param unknown $BotNet
      * @param PDO $Mysql
      * @param HttpServ $XMLRPC
      * @param ModuleLoader $MLoader
@@ -62,7 +60,6 @@ class ModuleManager {
     
     function stop() {
         foreach ($this->modules as $key => $mod) {
-            $this->modules[$key]['class']->cleanup();
             unset($this->modules[$key]['class']);
             unset($this->modules[$key]['lastClass']);
             unset($this->modules[$key]);
@@ -92,27 +89,7 @@ class ModuleManager {
         foreach($list as $m) {
             $this->loadModule($m, true);
         }
-        
-        $this->processSignals();
     }
-
-    public $slots = Array();
-	/*
-	 * $slots['fromMod'] = Array(
-	 *  'name' = (name of slot) Array(
-	 *    'class' = class to call
-	 *    'func' = func to call
-	 *  )) 
-	 *  
-	 */
-
-	/*
-	 * For now i think it best to leave IRC slots the way they are
-	 * mostly because they have masks support.. and it would be
-	 * confusing to add some events as signals
-	 */
-
-    public $signalQ = Array();
 
     function logic() {
         //var_dump(array_keys($this->modules));
@@ -121,37 +98,21 @@ class ModuleManager {
         }
     }
 
-    function processSignals() {
-        $sq = $this->signalQ;
-        $this->signalQ = Array();
-        foreach($sq as $s) {
-            if(array_key_exists($s['fromMod'], $this->slots) && array_key_exists($s['name'], $this->slots[$s['fromMod']])) {
-                foreach($this->slots[$s['fromMod']][$s['name']] as $slot) {
-                    $class = $this->modules[$slot['modName']]['class'];
-                    $class->{$slot['func']}($s['args']);
-                }
-            }
+    public function callLoaded(string $watcher, string $name) {
+        foreach($this->modules as &$module) {
+            $module['class']->moduleLoaded($name);
         }
     }
 
-    function sendSignal($name, $fromMod, $args) {
-        $this->signalQ[] = Array('name' => $name, 'fromMod' => $fromMod, 'args' => &$args);
-
+    public function callReloaded(string $watcher, string $name) {
+        foreach($this->modules as &$module) {
+            $module['class']->moduleReloaded($name);
+        }
     }
 
-    function addSlot($name, $fromMod, $func, $modName = '') {
-        $this->slots[$fromMod][$name][] = Array('func' => $func, 'modName' => $modName);
-    }
-
-    function delModSlots($mod) {
-        foreach($this->slots as $k => $s) {
-            foreach($s as $k1 => $s1) {
-                foreach($s1 as $k2 => $s2) {
-                    if($s2['modName'] == $mod) {
-                        unset($this->slots[$k][$k1][$k2]);
-                    }
-                }
-            }
+    public function callUnloaded(string $watcher, string $name) {
+        foreach($this->modules as &$module) {
+            $module['class']->moduleUnloaded($name);
         }
     }
 
@@ -315,21 +276,14 @@ class ModuleManager {
         	$cinfo = $this->cinfo[$ckey];
         }
         
-        $this->modules[$name]['class']->setVars($this->pIrc, $this->pSockets, $this->pBotNet, $this->pMysql, $this, $cinfo);
+        $this->modules[$name]['class']->setVars($this->pIrc, $this->pMysql, $this, $cinfo);
         $this->modules[$name]['class']->init();
-        //register hooks
+
+        //We defer these so all modules load first at startup before sending
         if($reload) {
-            $this->delModSlots($name);
-        }
-        if(isset($info['slots'])) {
-            foreach($info['slots'] as $func => $slot) {
-                $this->addSlot($slot['name'], $slot['from'], $func, $name);
-            }
-        }
-        if($reload) {
-            $this->sendSignal('reload', 'ModuleManager', Array('name' => $name));
+            \Amp\Loop::defer([$this, 'callReloaded'], $name);
         } else {
-            $this->sendSignal('load', 'ModuleManager', Array('name' => $name));
+            \Amp\Loop::defer([$this, 'callLoaded'], $name);
         }
 
         if(isset($info['XMLRPC'])) {
@@ -352,9 +306,9 @@ class ModuleManager {
         if(isset($this->modules[$name]) && isset($info['Modules'][$section])) {
             return $info['Modules'][$section];
         }
+        return null;
     }
 
-    //lolwut?
     function delModule($name) {
         unset($this->mlist[$name]);
         try {

@@ -38,11 +38,6 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
     public ?string $pass;
     
     /**
-     * How long until the connecting to the server times out
-     */
-    public int $connectTimeout = 30;
-    
-    /**
      * Name of the bot and IRC nickname to try to get
      */
     public string $nick;
@@ -63,19 +58,15 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
     public int $wraplen = 400;
     
     /**
-     * Contains the last line we've recieved from IRC
+     * Contains the last line we've received from IRC
      */
     public ?string $last_in;
     
     /**
      * How long to go without any received data after pinging the server before timing out
+     * This/2 is when we try sending a ping
      */
-    public int $pingTimeout = 30;
-
-    /**
-     * Interval to ping server
-     */
-    public int $pingInterval = 30;
+    public int $pingTimeout = 60;
     
     /**
      * Line to send for auth after connecting
@@ -116,12 +107,7 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
     public Nicks $Nicks;
 
     /**
-     * Last time a ping was sent
-     */
-    protected $pingTime;
-
-    /**
-     * Interval to keep trying to regain our nickname
+     * Interval (in seconds) to keep trying to regain our nickname
      */
     public int $nickCheckInterval = 15;
 
@@ -156,7 +142,7 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
     protected ?string $sendWatcher;
     protected ?string $reconnectWatcher;
     protected ?string $nickCheckWatcher;
-
+    protected ?string $timeoutWatcher;
 
     //TODO remove all this, I don't want the irc lib accessing a module
     public ModuleManager $pMM;
@@ -189,10 +175,14 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
     public function setLogger(\Psr\Log\LoggerInterface $log)
     {
         $this->log = $log;
+        $this->updateLoggerExtras();
+    }
 
-        if(get_class($log) == "Monolog\Logger") {
+    protected function updateLoggerExtras() {
+        //Not all loggers support this
+        if(get_class($this->log) == "Monolog\Logger") {
             $this->log->pushProcessor(function ($record) {
-                $record['extra']['IRC Nick'] = $this->nick;
+                $record['extra']['BotNick'] = $this->nick;
                 return $record;
             });
         }
@@ -203,6 +193,7 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
      * @param string|null $bindIP
      */
     function setBindIP(?string $bindIP) {
+        $this->log->info("Set bind IP", [$bindIP]);
         $this->connectContext = $this->connectContext->withBindTo($bindIP);
     }
 
@@ -214,9 +205,18 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
                 $tls = new ClientTlsContext($this->server);
             }
             $this->connectContext = $this->connectContext->withTlsContext($tls);
+            $this->log->info("Enabled SSL", [$verify]);
         } else {
             $this->connectContext = $this->connectContext->withoutTlsContext();
+            $this->log->info("Disabled SSL");
         }
+    }
+
+    /**
+     * @param int $timeout timeout in ms
+     */
+    function setConnectTimeout(int $timeout) {
+        $this->connectContext = $this->connectContext->withConnectTimeout($timeout);
     }
 
     /**
@@ -276,6 +276,7 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
      * @param string $quitmsg
      */
     function killBot($quitmsg) {
+        $this->log->info("killBot called");
         $this->eventServer->sendEvent(new IrcEvent('killbot', Array($quitmsg)));
         $this->raw('QUIT :' . $quitmsg);
         $this->tryDie = true;
@@ -286,11 +287,13 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
      * @param Exception $e
      */
     function handleError(Exception $e) {
+        if(!$this->socket->isClosed()) {
+            $this->socket->close();
+        }
         $this->log->info("Disconnected", [$e]);
         \Amp\Loop::cancel($this->sendWatcher);
         \Amp\Loop::cancel($this->nickCheckWatcher);
-        //TODO ping watcher?
-        //\Amp\Loop::cancel($this->);
+        \Amp\Loop::cancel($this->timeoutWatcher);
         $this->Nicks->clearAll();
         $this->resetSendQ();
         $this->state = \IRC\State::DISCONNECTED;
@@ -316,9 +319,23 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
                 $this->handleError(new Exception("Read returned null"));
                 return;
             }
+            if($this->timeoutWatcher != null) {
+                \Amp\Loop::cancel($this->timeoutWatcher);
+            }
+            $this->timeoutWatcher = new \Amp\Loop\Delay(($this->pingTimeout/2.0) * 1000, [$this, 'tryPing']);
             $line = rtrim($line, "\r");
+            $this->last_in = $line;
             $this->parseLine($line);
         }
+    }
+
+    protected function tryPing() {
+        $this->timeoutWatcher = new \Amp\Loop\Delay(($this->pingTimeout/2.0) * 1000, [$this, 'noPing']);
+        $this->raw("PING :LAG".time());
+    }
+
+    protected function noPing() {
+        $this->handleError(new Exception("Ping Timeout"));
     }
 
     /**
@@ -337,6 +354,8 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
         $this->log->info("Changing nickname", ['old' => $this->nick, 'new' => $newnick]);
         $this->raw("NICK $newnick");
         $this->nick = $newnick;
+        //Update logger because it reflects target name not current
+        $this->updateLoggerExtras();
     }
     
 	/**
@@ -575,21 +594,6 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
             $this->sendWatcher = null;
         }
     }
-
-    /**
-     * To be called every cycle, process all our logic
-     */
-    public function logic() {
-        if($this->state == \IRC\State::AUTHED) {
-            $pingInterval = $this->pingInterval;
-            if ($pingInterval < 5) $pingInterval = 5;
-            if($this->pingTime < time() - $pingInterval) {
-                $this->pingTime = time();
-                $this->raw('PING LAG' . time());
-            }
-        }
-
-    }
     
     /**
      * Queue a raw message to be sent to the server. \r\n is appended.
@@ -649,9 +653,6 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
      */
     function pNick($nick, $arg) {
         //:botopss!~bots@kyte.is-shaking-his-stick-at-you.gamesurge NICK :BotOps
-        //Might need to check if exists
-        //But don't see a need unless we lag, then other issues would arise too...
-        //So in the mean time we just hope :)
         if ($arg[2][0] == ':') {
             $arg[2] = substr($arg[2], 1);
         }
@@ -954,6 +955,30 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
         }
     }
 
+    function parseNumeric($arg, $line) {
+        switch ($arg[1]) {
+            case '001':
+                $this->p001();
+                break;
+            case '005':
+                $this->p005($line);
+                break;
+            case '433':
+                $this->p443($arg);
+                break;
+            case '366':
+                $this->p366($arg);
+                break;
+            case '354': //custom who reply
+                $this->p354($arg);
+                break;
+            case '353': //names reply
+                $this->p353($arg);
+                break;
+        }
+        $this->eventServer->sendEvent(new IrcEvent($arg[1], Array($line)));
+    }
+
     function p001() {
         $this->state = \IRC\State::CONNECTED;
         $this->eventServer->sendEvent(new IrcEvent('connected', Array()));
@@ -1000,30 +1025,6 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
     
     function p353($arg) {
         $this->Nicks->names($arg);
-    }
-    
-    function parseNumeric($arg, $line) {
-        switch ($arg[1]) {
-            case '001':
-                $this->p001();
-                break;
-            case '005':
-                $this->p005($line);
-                break;
-            case '433':
-                $this->p443($arg);
-                break;
-            case '366':
-                $this->p366($arg);
-                break;
-            case '354': //custom who reply
-                $this->p354($arg);
-                break;
-            case '353': //names reply
-                $this->p353($arg);
-                break;
-        }
-        $this->eventServer->sendEvent(new IrcEvent($arg[1], Array($line)));
     }
     
     /*

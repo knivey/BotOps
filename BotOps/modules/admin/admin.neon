@@ -8,10 +8,6 @@ XMLRPC:
     rename: rpc_rename
     loadfilters: rpc_loadfilters
 
-slots:
-    loaded: {from: ModuleManager, name: load}
-    reloaded: {from: ModuleManager, name: reload}
-
 irc:
     hooks:
         h_311: {hook: '311', mask: ""}

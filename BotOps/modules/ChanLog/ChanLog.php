@@ -1,15 +1,27 @@
 <?php
 
- require_once('modules/Module.inc');
- require_once('Tools/Tools.php');
+require_once('modules/Module.inc');
+require_once('Tools/Tools.php');
+
+use \Amp\Loop;
 
 /**
  * Logs channel text to their own files
  * Might later add a timer to do fflush if our files dont write on fail
  */
 class ChanLog extends Module {
-    public $files = Array();
-    
+    public array $files = Array();
+
+    public ?string $timer;
+
+    public function __destruct()
+    {
+        Loop::cancel($this->timer);
+        foreach ($this->files as $chan => $fd) {
+            $this->closeLog($chan, "Module unloaded");
+        }
+    }
+
     function h_chanevent($chan, $line) {
         $chan = strtolower($chan);
         $microtime = round(microtime(true) * 1000);
@@ -22,6 +34,7 @@ class ChanLog extends Module {
                 $bn = $this->pIrc->nick;
                 fwrite($fd, "$microtime *** Log Opened ($bn) ***\n");
             } else {
+                //Another bot probably already has it
                 fclose($fd);
                 return;
             }
@@ -50,17 +63,10 @@ class ChanLog extends Module {
             $this->closeLog($chan, "Kicked: $text");
         }
     }
-    
-    public $timer;
+
     function init() {
-    	$this->timer = time() + 1800; //30 min
-    }
-    
-    function logic() {
-    	if(time() > $this->timer) {
-    		$this->timer = time() + 1800;
-    		$this->saveLogs();
-    	}
+        //5 min sounds fine
+    	$this->timer = Loop::repeat(5000, [$this, 'saveLogs']);
     }
     
     function saveLogs() {

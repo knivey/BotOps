@@ -1,9 +1,5 @@
 description: Provide many internal tools and our $var system
 require: [user]
-slots:
-    loaded: {from: ModuleManager, name: load}
-    reloaded: {from: ModuleManager, name: reload}
-    unloaded: {from: ModuleManager, name: unload}
 Modules:
     CmdReg:
         funcs:

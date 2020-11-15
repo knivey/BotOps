@@ -240,29 +240,29 @@ class ParseUtil extends Module {
         }
     }
 
-    function loaded($args) {
-        $info = $this->pMM->getConf($args['name'], 'ParseUtil');
-        $mod = $args['name'];
+    function moduleLoaded(string $name) {
+        $info = $this->pMM->getConf($name, 'ParseUtil');
         if($info == null) return;
-        echo "ParseUtil loading module $args[name]\n";
+        echo "ParseUtil loading module $name\n";
         //Handle our section of registry.conf here
         if(isset($info['vars']) && is_array($info['vars'])) {
-            foreach($info['vars'] as $name => $v) {
+            foreach($info['vars'] as $vname => $v) {
                 $arg = $v['args'] ?? null;
-                echo "ParseUtil added $name - $v[desc] to $v[func] of $mod\n";
-                $this->addVar($name, $v['desc'], $arg, $mod, $v['func']);
+                echo "ParseUtil added $vname - $v[desc] to $v[func] of $name\n";
+                $this->addVar($vname, $v['desc'], $arg, $name, $v['func']);
             }
         }
     }
 
-    function reloaded($args) {
-        echo "ParseReg: Cleaning up $args[name]\n";
-        $this->delVarByMod($args['name']);
-        $this->loaded($args);
+    function moduleReloaded(string $name) {
+        echo "ParseReg: Cleaning up $name\n";
+        $this->delVarByMod($name);
+        $this->moduleLoaded($name);
     }
 
-    function unloaded($args) {
-        $this->delVarByMod($args['name']);
+    function moduleUnloaded(string $name) {
+        echo "ParseReg: Cleaning up $name\n";
+        $this->delVarByMod($name);
     }
 
     function rehash(&$old) {

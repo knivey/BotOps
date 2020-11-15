@@ -254,9 +254,8 @@ class CmdReg extends Module {
     }
 
     //Slot for module unloaded
-    function unloaded($args) {
-    //cleanup our binds here
-        $name = $args['name'];
+    function moduleUnloaded($name) {
+        //cleanup our binds here
         unset($this->funcs[$name]);
         foreach($this->catchers as $key => $catch) {
             if($catch['module'] == $name) {
@@ -267,31 +266,29 @@ class CmdReg extends Module {
 
     //modules that catch unknown commands
     public array $catchers = Array();
-    function reloaded($args) {
-        echo "CmdReg unloading module {$args['name']} for reload\n";
-        $this->unloaded($args);
-        $this->loaded($args);
+    function moduleReloaded(string $name) {
+        echo "CmdReg unloading module $name for reload\n";
+        $this->moduleUnloaded($name);
+        $this->moduleLoaded($name);
     }
 
     public bool $bindsLoaded = false;
 
     /**
      * Slot for module loaded
-     * @param $args
      * @throws Exception
      */
-    function loaded($args) {
-        echo "CmdReg loading module {$args['name']}\n";
+    function moduleLoaded(string $name) {
+        echo "CmdReg loading module $name\n";
         $this->loadBinds();
-        $info = $this->pMM->getConf($args['name'], 'CmdReg');
-        $module = $args['name'];
+        $info = $this->pMM->getConf($name, 'CmdReg');
         if($info == null) return;
 
         //check if module wants to catch unknown commands
         //notice the first module that returns true stop all other mods
         //from seeing that command
         if(array_key_exists('catch', $info) && $info['catch'] != null) {
-            $this->catchers[] = Array('module' => $module, 'func' => $info['catch']);
+            $this->catchers[] = Array('module' => $name, 'func' => $info['catch']);
         }
         
         if(array_key_exists('funcs', $info)) {
@@ -299,7 +296,7 @@ class CmdReg extends Module {
                 throw new Exception("funcs section is not an array");
             } else {
                 foreach ($info['funcs'] as $func => $f) {
-                    $this->addFunc($module, $func, $f);
+                    $this->addFunc($name, $func, $f);
                 }
             }
         }
@@ -314,7 +311,7 @@ class CmdReg extends Module {
                     $access = (string) ($b['access'] ?? '0');
                     $args = $b['args'] ?? '';
                     $loglvl = (int) ($b['loglvl'] ?? 0);
-                    $this->initialBind($module, $bind, $b['func'], $access, $args, $loglvl);
+                    $this->initialBind($name, $bind, $b['func'], $access, $args, $loglvl);
                 }
             }
         }

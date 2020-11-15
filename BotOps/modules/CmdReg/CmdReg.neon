@@ -1,9 +1,5 @@
 description: Keep track of all commands
 require: [user]
-slots:
-    loaded: {from: ModuleManager, name: load}
-    reloaded: {from: ModuleManager, name: reload}
-    unloaded: {from: ModuleManager, name: unload}
 XMLRPC:
     unbind: rpc_unbind
     bind: rpc_bind
