@@ -51,26 +51,29 @@ class channel extends Module
         $this->chans       = $old->chans;
         $this->dChans      = $old->dChans;
         $this->iscon       = $old->iscon;
-        $this->rejoinTimer = $old->rejoinTimer;
+        \Amp\Loop::cancel($old->rejoinTimer);
+        $this->rejoinTimer = \Amp\Loop::repeat(20000, [$this, 'doRejoins']);;
         echo "Channel rehash finished\n";
+    }
+
+    function __destruct()
+    {
+        \Amp\Loop::cancel($this->rejoinTimer);
     }
 
     function init()
     {
-        $this->rejoinTimer = time() + 60;
+        $this->rejoinTimer = \Amp\Loop::repeat(20000, [$this, 'doRejoins']);
     }
 
-    public $rejoinTimer;
+    public ?string $rejoinTimer = null;
 
-    function logic()
+    function doRejoins()
     {
-        if ($this->rejoinTimer < time()) {
-            $this->rejoinTimer = time() + 20;
-            foreach ($this->dChans as $chan => $blah) {
-                if (!array_key_exists($chan, $this->chans)) {
-                    if ($this->getSet($chan, 'channel', 'suspend') == null) {
-                        $this->pIrc->raw("join $chan");
-                    }
+        foreach ($this->dChans as $chan => $blah) {
+            if (!array_key_exists($chan, $this->chans)) {
+                if ($this->getSet($chan, 'channel', 'suspend') == null) {
+                    $this->pIrc->raw("join $chan");
                 }
             }
         }

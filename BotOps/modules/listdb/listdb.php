@@ -11,30 +11,41 @@ class listdb extends Module {
     public $deadchans = Array();
     public $qm = true;
     public $delay = 350;
-    public $ntime;
+    public ?string $listTimer = null;
     
     function rehash(&$old) {
-         $this->llist = $old->llist;
-         $this->nlist = $old->nlist;
-         $this->ntime = $old->ntime;
-         $this->init = $old->init;
-         $this->lkeys = $old->lkeys;
-         $this->newchans = $old->newchans;
-         $this->deadchans = $old->deadchans;
-         $this->delay = $old->delay;
-         $this->qm = $old->qm;
+        $this->llist = $old->llist;
+        $this->nlist = $old->nlist;
+        $this->init = $old->init;
+        $this->lkeys = $old->lkeys;
+        $this->newchans = $old->newchans;
+        $this->deadchans = $old->deadchans;
+        $this->delay = $old->delay;
+        $this->qm = $old->qm;
+        Amp\Loop::cancel($old->listTimer);
+        $this->setTimer($this->delay);
     }
-    
+
+    function __destruct()
+    {
+        if($this->listTimer != null)
+            Amp\Loop::cancel($this->listTimer);
+    }
+
     function init() {
-        $this->ntime = time() + 30;
+        $this->setTimer(350);
         $this->init = true;
     }
     
-    function logic() {
-        if($this->ntime < time()) {
+    function reqList() {
             $this->pIrc->raw("LIST >0");
-            $this->ntime = time() + $this->delay;
-        }
+    }
+
+    function setTimer($delay) {
+        $this->delay = $delay;
+        if($this->listTimer != null)
+            Amp\Loop::cancel($this->listTimer);
+        $this->listTimer = Amp\Loop::repeat($delay * 1000, [$this, 'reqList']);
     }
     
     function cmd_csearch(CmdRequest $r) {
@@ -49,12 +60,12 @@ class listdb extends Module {
         if($this->qm) {
             $this->qm = false;
             $this->delay = 7;
-            $this->ntime = time() + 4;
+            $this->setTimer($this->delay);
             $r->reply("List display ON, db update set to 7s", 0, 1);
         } else {
             $this->qm = true;
             $this->delay = 350;
-            $this->ntime = time() + 350;
+            $this->setTimer($this->delay);
             $r->reply("List display off, db update set to 5m", 0, 1);
         }
     }

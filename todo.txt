@@ -90,3 +90,5 @@ XMLRPC check how well errors and retries are handled
 Would like to make things able to handle multiple irc networks
 
 Implement module unloading
+
+Rewrite the trivia module mess
