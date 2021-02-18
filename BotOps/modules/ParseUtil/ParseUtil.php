@@ -267,6 +267,8 @@ class ParseUtil extends Module {
 
     function rehash(&$old) {
         $this->vars = $old->vars;
+        //TODO remove later
+        \Amp\Loop::cancel($this->rejoinTimer);
     }
 
     public $parses = Array();
@@ -299,6 +301,17 @@ class ParseUtil extends Module {
             return;
         }
     }
+
+    //TODO this is temporary
+    protected $logicTimer;
+    function init() {
+        $this->logicTimer = \Amp\Loop::repeat(1000, [$this, 'logic']);
+    }
+    function __destruct()
+    {
+        \Amp\Loop::cancel($this->logicTimer);
+    }
+
 
     function logic() {
         foreach($this->parses as $pkey => $p) {

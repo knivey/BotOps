@@ -39,11 +39,16 @@ include_once 'modules/ModuleManager.inc';
 include_once 'Tools/Duration.inc';
 include_once 'Tools/OAuth.php';
 include_once 'Tools/twitteroauth.php';
+//TODO REMOVEME temporary for testing
+require_once 'HttpServ_mock.php';
 
 require __DIR__ . '/../vendor/autoload.php';
 use Amp\Loop;
 use Nette\Neon\Neon;
-
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+$log = new Logger('name');
+$log->pushHandler(new StreamHandler(STDOUT, Logger::DEBUG));
 
 $dead = false;
 
@@ -155,7 +160,7 @@ if (empty($arf)) {
     }
 }
 
-echo "Starting bots: " . implode(', ', $startbots) . "\n";
+echo "Bots to be started: " . implode(', ', $startbots) . "\n";
 $MLoader = new ModuleLoader();
 function startbots(array $startbots) {
     global $bots, $config, $sockets, $Mysql;
@@ -163,15 +168,15 @@ function startbots(array $startbots) {
         $bots[$b] = new Bot($b, $config, $Mysql);
         echo "Starting Bot $b\n";
         $bots[$b]->init();
-        $bots[$b]->Irc->connect();
+        \Amp\asyncCall([$bots[$b]->Irc, 'connect']);
     }
 }
-startbots($startbots);
 
 /*
  * TODO items left for amp update
  * DONE modulemanager slots
  * modules logic()
+ *  * Still need to do ParseUtil and Trivia
  * httpserv (xmlrpc)
  * any modules using sockets (scorebot)
  * any modules making web requests
@@ -182,7 +187,6 @@ startbots($startbots);
  * find a way to automate thorough testing of the irc lib networking, especially connection errors, reconnects timeouts etc
  * irc lib will be on its own repo soon and want to make it full featured but first focus on making amp work
  */
-
 
 class Bot {
     public Irc $Irc;
@@ -205,7 +209,7 @@ class Bot {
     }
 
     function init() {
-        global $MLoader;
+        global $MLoader, $log;
         $cInfo = $this->Config;
 
         // Fetch info about this bot
@@ -231,6 +235,7 @@ class Bot {
 
         //Initialize its IRC connection
         $this->Irc = new Irc($this->name, $botinfo['server'], $botinfo['pass']);
+        $this->Irc->setLogger($log);
         $this->Irc->setBindIP($botinfo['ip']);
         $this->Irc->port = $botinfo['port'];
         //TODO add ssl flag to db
@@ -251,7 +256,7 @@ class Bot {
 
         $this->loadFilters();
         //TODO replace with amp
-        $this->XMLRPC = new HttpServ($botinfo['xmlip'], $botinfo['xmlport'], true);
+        $this->XMLRPC = new \HttpServ();
         $this->XMLRPC->init();
 
         $this->ModuleManager = new ModuleManager($this->Irc,
@@ -284,7 +289,11 @@ class Bot {
     }
 }
 
-
+\Amp\Loop::run(function() {
+    global $startbots;
+    startbots($startbots);
+});
+/*
 //TODO amp loop replaces this
 while (count($bots) > 0) {
     if ($MySQL_LastPing + $MySQL_TimeOut < time()) {
@@ -302,3 +311,4 @@ while (count($bots) > 0) {
         }
     }
 }
+*/

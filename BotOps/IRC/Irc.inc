@@ -102,7 +102,7 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
      * State of the IRC connection
      * Use consts from \IRC\State
      */
-    public int $state;
+    public int $state = \IRC\State::DISCONNECTED;
 
     public Nicks $Nicks;
 
@@ -130,7 +130,7 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
      * Used as a calculation on when we can send again
      * @var float $msg_since
      */
-    public ?float $msg_since;
+    public ?float $msg_since = 0;
 
     /**
      * How to do throttling
@@ -139,10 +139,10 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
      */
     public int $throttleMethod = 1;
 
-    protected ?string $sendWatcher;
-    protected ?string $reconnectWatcher;
-    protected ?string $nickCheckWatcher;
-    protected ?string $timeoutWatcher;
+    protected ?string $sendWatcher = null;
+    protected ?string $reconnectWatcher = null;
+    protected ?string $nickCheckWatcher = null;
+    protected ?string $timeoutWatcher = null;
 
     //TODO remove all this, I don't want the irc lib accessing a module
     public ModuleManager $pMM;
@@ -172,9 +172,9 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
         $this->log = new \Psr\Log\NullLogger;
     }
 
-    public function setLogger(\Psr\Log\LoggerInterface $log)
+    public function setLogger(\Psr\Log\LoggerInterface $logger)
     {
-        $this->log = $log;
+        $this->log = $logger;
         $this->updateLoggerExtras();
     }
 
@@ -291,9 +291,12 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
             $this->socket->close();
         }
         $this->log->info("Disconnected", [$e]);
-        \Amp\Loop::cancel($this->sendWatcher);
-        \Amp\Loop::cancel($this->nickCheckWatcher);
-        \Amp\Loop::cancel($this->timeoutWatcher);
+        if($this->sendWatcher)
+            \Amp\Loop::cancel($this->sendWatcher);
+        if($this->nickCheckWatcher)
+            \Amp\Loop::cancel($this->nickCheckWatcher);
+        if($this->timeoutWatcher)
+            \Amp\Loop::cancel($this->timeoutWatcher);
         $this->Nicks->clearAll();
         $this->resetSendQ();
         $this->state = \IRC\State::DISCONNECTED;
@@ -322,19 +325,19 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
             if($this->timeoutWatcher != null) {
                 \Amp\Loop::cancel($this->timeoutWatcher);
             }
-            $this->timeoutWatcher = new \Amp\Loop\Delay(($this->pingTimeout/2.0) * 1000, [$this, 'tryPing']);
+            $this->timeoutWatcher = Loop::Delay(($this->pingTimeout/2.0) * 1000, [$this, 'tryPing']);
             $line = rtrim($line, "\r");
             $this->last_in = $line;
             $this->parseLine($line);
         }
     }
 
-    protected function tryPing() {
-        $this->timeoutWatcher = new \Amp\Loop\Delay(($this->pingTimeout/2.0) * 1000, [$this, 'noPing']);
+    public function tryPing() {
+        $this->timeoutWatcher = Loop::Delay(($this->pingTimeout/2.0) * 1000, [$this, 'noPing']);
         $this->raw("PING :LAG".time());
     }
 
-    protected function noPing() {
+    public function noPing() {
         $this->handleError(new Exception("Ping Timeout"));
     }
 
@@ -581,6 +584,7 @@ class Irc implements \Psr\Log\LoggerAwareInterface {
             }
         } catch (Exception $e) {
             $this->handleError($e);
+            return;
         }
         //TODO use a getter and setter to validate
         throw new Exception("Unknown throttle method set " . $this->throttleMethod . "\n");
